@@ -40,7 +40,7 @@ Five packages under `com.election`, each with one job. `Application.java` only w
 
 | Package | Class | Kind | Responsibility |
 | --- | --- | --- | --- |
-| model | `User` | abstract class | id, name; abstract `canManageElections()` and `canVote()` |
+| model | `User` | abstract class | id; abstract `canManageElections()` and `canVote()` |
 | model | `Administrator` | extends User | manages elections; cannot vote |
 | model | `Voter` | extends User | votes; cannot manage elections |
 | model | `Role` | enum | ADMIN, VOTER (read from users.csv) |
@@ -101,22 +101,22 @@ Console prompts by ballot type:
 
 Five files in `src/main/resources/`, each with a header row, loaded in this order because each file refers to ids from the ones before it. Multiple choices use `|` as the separator because commas already split the columns.
 
-**users.csv** (`role` decides whether the loader builds an `Administrator` or a `Voter`)
+**users.csv** (users are identified by id only; `role` decides whether the loader builds an `Administrator` or a `Voter`)
 
 ```csv
-id,name,role
-A1,Abena Kyei,ADMIN
-A2,Pierre Girard,ADMIN
-V001,Ama Owusu,VOTER
-V002,Lucas Martin,VOTER
-V003,Nadia Haddad,VOTER
-V004,Yaw Asante,VOTER
-V005,Chloe Bernard,VOTER
-V006,Kwame Adjei,VOTER
-V007,Sofia Rossi,VOTER
-V008,Esi Quaye,VOTER
-V009,Hugo Lefevre,VOTER
-V010,Inès Moreau,VOTER
+id,role
+A1,ADMIN
+A2,ADMIN
+V001,VOTER
+V002,VOTER
+V003,VOTER
+V004,VOTER
+V005,VOTER
+V006,VOTER
+V007,VOTER
+V008,VOTER
+V009,VOTER
+V010,VOTER
 ```
 
 **elections.csv** (`createdBy` must be an administrator)
