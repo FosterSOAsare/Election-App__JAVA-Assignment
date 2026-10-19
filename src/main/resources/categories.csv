@@ -1,0 +1,5 @@
+id,electionId,name,ballotType,seats
+PRES,E1,President,SELECT_ONE,1
+COMM,E1,Committee members,SELECT_MULTIPLE,2
+FEE,E1,Raise the club fee to 10 euros?,YES_NO,1
+CAPT,E2,Club captain,SELECT_ONE,1
