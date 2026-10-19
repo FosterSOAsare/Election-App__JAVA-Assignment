@@ -24,7 +24,7 @@ The sample election, Student Council 2026, has three categories:
 | Classes and encapsulation | Domain classes (`Election`, `Category`, `Candidate`, `User`, `Ballot`) with private fields and validated constructors |
 | Inheritance | Abstract `User` with `Administrator` and `Voter`; abstract `Ballot` with `SingleChoiceBallot`, `MultipleChoiceBallot` and `YesNoBallot`; abstract `CategoryResult` with `CandidateResult` and `YesNoResult` |
 | Polymorphism | `user.canManageElections()` and `user.canVote()` answer differently per role; each ballot validates itself; each category is counted through `CountingMethod`; each result prints through `summary()` |
-| Abstract class / interface | `User`, `Ballot` and `CategoryResult` are abstract (shared state + behaviour); `CountingMethod`, `DataLoader<T>` and `Menu` are interfaces |
+| Abstract class / interface | `User`, `Ballot` and `CategoryResult` are abstract (shared state + behaviour); `ManagementPermission`, `VotingPermission`, `CountingMethod`, `DataLoader<T>` and `Menu` are interfaces |
 | Business logic | Role permissions, election lifecycle, setup checks before opening, registration checks, one vote per voter per category, ballot validation per type, multi-seat counting, yes/no outcome, tie handling |
 | File loading | `users.csv`, `elections.csv`, `categories.csv`, `candidates.csv`, `ballots.csv` loaded at startup |
 | Exceptions | Checked `ElectionException` hierarchy plus `DataLoadException`; bad rows reported and skipped |
@@ -40,7 +40,9 @@ Five packages under `com.election`, each with one job. `Application.java` only w
 
 | Package | Class | Kind | Responsibility |
 | --- | --- | --- | --- |
-| model | `User` | abstract class | id; abstract `canManageElections()` and `canVote()` |
+| model | `ManagementPermission` | interface | `boolean canManageElections()` |
+| model | `VotingPermission` | interface | `boolean canVote()` |
+| model | `User` | abstract class | id; implements `ManagementPermission` and `VotingPermission`, leaving both methods to its subclasses |
 | model | `Administrator` | extends User | manages elections; cannot vote |
 | model | `Voter` | extends User | votes; cannot manage elections |
 | model | `Role` | enum | ADMIN, VOTER (read from users.csv) |
@@ -226,7 +228,7 @@ C4 and C5 tie on 5 votes, but both win because there are 2 seats. A tie only mat
 
 Five decisions to settle before coding; the README asks for 2 to 5, so these cover it.
 
-1. **Roles are subclasses, permissions are methods.** `Administrator` and `Voter` override `canManageElections()` and `canVote()`, so services ask the user instead of checking its type with `instanceof`. Only the administrator who created an election can edit, open or close it; anyone else gets `UnauthorizedActionException`.
+1. **Roles are subclasses, permissions are methods.** `User` implements the `ManagementPermission` and `VotingPermission` interfaces, and `Administrator` and `Voter` each override `canManageElections()` and `canVote()`, so services ask the user instead of checking its type with `instanceof`. Only the administrator who created an election can edit, open or close it; anyone else gets `UnauthorizedActionException`.
 2. **A one-way lifecycle.** DRAFT to OPEN to CLOSED, never backwards. Setup is frozen once voting starts, so no one can add a candidate mid-vote, and results exist only after closing.
 3. **The ballot type belongs to the category.** A ballot row only carries voter, category and choices, so a file cannot pair a yes/no answer with the President category. `BallotFactory` reads the type and builds the matching subclass.
 4. **Ties.** If candidates tie for the last winning seat, that seat stays undecided and the result lists the tied candidates. A yes/no vote with equal yes and no is rejected, because a change needs more support than opposition.
@@ -237,7 +239,7 @@ How SOLID shows up:
 - **Single responsibility:** loading, election management, ballot creation, voting, counting and display are separate classes.
 - **Open/closed:** adding a ranked ballot later means a new `Ballot` subclass, a new `CountingMethod`, an enum value and one registry entry; `TallyService`, `VotingService` and the existing counting methods stay untouched. A new role, such as an observer who can only view results, is a new `User` subclass.
 - **Liskov substitution:** any `User` works wherever the services expect one; `MostVotesCount` reads any ballot through `selections()`, so single and multiple choice ballots are interchangeable to it.
-- **Interface segregation:** `CountingMethod`, `DataLoader<T>` and `Menu` each have one method.
+- **Interface segregation:** `ManagementPermission`, `VotingPermission`, `CountingMethod`, `DataLoader<T>` and `Menu` each have one method, so a class only depends on the one it needs.
 - **Dependency inversion:** `TallyService` depends on the `CountingMethod` interface through the registry, never on `MostVotesCount` or `YesNoCount` directly; `Application` only talks to the `Menu` interface.
 
 ## Test plan
