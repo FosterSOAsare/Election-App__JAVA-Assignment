@@ -6,6 +6,7 @@ import com.election.model.Election;
 import com.election.model.User;
 import com.election.repository.ElectionRepository;
 import com.election.repository.UserRepository;
+import com.election.service.ElectionManagementService;
 import com.election.service.TallyService;
 import com.election.ui.AdminMenu;
 import com.election.ui.Menu;
@@ -21,11 +22,14 @@ public class Application {
 
     public static void main(String[] args) {
         // Wiring only: load the CSV files, build the services, log the user in, start their menu.
+        Path usersFile = Path.of("src/main/resources/users.csv");
+        Path electionsFile = Path.of("src/main/resources/elections.csv");
+
         List<User> users;
         List<Election> elections;
         try {
-            users = new UserCsvLoader().load(Path.of("src/main/resources/users.csv"));
-            elections = new ElectionCsvLoader().load(Path.of("src/main/resources/elections.csv"));
+            users = new UserCsvLoader().load(usersFile);
+            elections = new ElectionCsvLoader().load(electionsFile);
         } catch (IOException e) {
             System.out.println("Could not read the data files: " + e.getMessage());
             return;
@@ -33,6 +37,7 @@ public class Application {
 
         UserRepository userRepository = new UserRepository(users);
         ElectionRepository electionRepository = new ElectionRepository(elections);
+        ElectionManagementService managementService = new ElectionManagementService(electionRepository);
         TallyService tallyService = new TallyService(electionRepository);
 
         System.out.println("Welcome to ELECTION APP");
@@ -57,7 +62,7 @@ public class Application {
 
         Menu menu;
         if (loggedIn.canManageElections()) {
-            menu = new AdminMenu(loggedIn, tallyService, scanner);
+            menu = new AdminMenu(loggedIn, managementService, tallyService, scanner);
         } else {
             menu = new VoterMenu(loggedIn, scanner);
         }

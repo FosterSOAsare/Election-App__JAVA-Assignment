@@ -15,12 +15,31 @@ public class ElectionRepository {
 
     public ElectionRepository(List<Election> elections) {
         for (Election election : elections) {
-            String key = election.getId().toUpperCase();
-            if (electionsById.containsKey(key)) {
-                throw new IllegalArgumentException("Duplicate election id: " + election.getId());
-            }
-            electionsById.put(key, election);
+            add(election);
         }
+    }
+
+    public void add(Election election) {
+        String key = election.getId().toUpperCase();
+        if (electionsById.containsKey(key)) {
+            throw new IllegalArgumentException("Duplicate election id: " + election.getId());
+        }
+        electionsById.put(key, election);
+    }
+
+    /** Returns true if an election with this id existed and was removed. */
+    public boolean delete(String id) {
+        return electionsById.remove(id.toUpperCase()) != null;
+    }
+
+    /** The next free id: one more than the highest E-number, so E7 after E6. */
+    public String nextId() {
+        int highest = electionsById.keySet().stream()
+                .filter(key -> key.matches("E\\d+"))
+                .mapToInt(key -> Integer.parseInt(key.substring(1)))
+                .max()
+                .orElse(0);
+        return "E" + (highest + 1);
     }
 
     public List<Election> findAll() {

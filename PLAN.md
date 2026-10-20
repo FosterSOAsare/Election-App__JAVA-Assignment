@@ -59,7 +59,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `CandidateResult` | extends CategoryResult | `List<Candidate>` winners, candidates tied for the last seat |
 | model | `YesNoResult` | extends CategoryResult | yes count, no count, passed |
 | repository | `UserRepository` | class | `Map<String, User>`; `findById` ignores case; rejects duplicate ids |
-| repository | `ElectionRepository` | class | `LinkedHashMap<String, Election>` in file order; `findAll`, `findById`, `findByStatus`; finds the election a category belongs to |
+| repository | `ElectionRepository` | class | `LinkedHashMap<String, Election>` in file order; `findAll`, `findById`, `findByStatus`, `add`, `delete`, `nextId`; finds the election a category belongs to |
 | service | `ElectionManagementService` | class | admin actions: `createElection`, `addCategory`, `addCandidate`, `openElection`, `closeElection`; checks the actor's role, that the actor created the election, and the election's state |
 | service | `CountingMethod` | interface | `CategoryResult count(Category, List<Ballot>)` |
 | service | `MostVotesCount` | implements CountingMethod | tallies every selection; the top `seats` candidates win (1 for SELECT_ONE) |
@@ -217,7 +217,7 @@ The last eight ballot rows are invalid on purpose, so startup shows the error ha
 
 V010 skips the President vote and V009 ends up with no valid committee or fee vote. Both are allowed: voting in a category is optional.
 
-Elections, categories and candidates an administrator creates in the console exist only for that run; the files are not rewritten.
+Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it.
 
 ## Expected results
 
