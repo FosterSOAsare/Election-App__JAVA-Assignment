@@ -36,7 +36,7 @@ Scope rule: get SELECT_ONE voting working end to end first, then the admin actio
 
 ## Class list
 
-Five packages under `com.election`, each with one job. `Application.java` only wires the pieces together, asks the user to log in by id, and starts the right menu.
+Six packages under `com.election`, each with one job. Repositories store objects and find them; services hold the business rules and use the repositories. `Application.java` only wires the pieces together, asks the user to log in by id, and starts the right menu.
 
 | Package | Class | Kind | Responsibility |
 | --- | --- | --- | --- |
@@ -58,7 +58,8 @@ Five packages under `com.election`, each with one job. `Application.java` only w
 | model | `CategoryResult` | abstract class | category, `Map<String, Integer>` tallies; abstract `summary()` |
 | model | `CandidateResult` | extends CategoryResult | `List<Candidate>` winners, candidates tied for the last seat |
 | model | `YesNoResult` | extends CategoryResult | yes count, no count, passed |
-| service | `ElectionRegistry` | class | holds every election and user by id (`Map<String, Election>`, `Map<String, User>`); finds the election a category belongs to |
+| repository | `UserRepository` | class | `Map<String, User>`; `findById` ignores case; rejects duplicate ids |
+| repository | `ElectionRepository` | class | `LinkedHashMap<String, Election>` in file order; `findAll`, `findById`, `findByStatus`; finds the election a category belongs to |
 | service | `ElectionManagementService` | class | admin actions: `createElection`, `addCategory`, `addCandidate`, `openElection`, `closeElection`; checks the actor's role, that the actor created the election, and the election's state |
 | service | `CountingMethod` | interface | `CategoryResult count(Category, List<Ballot>)` |
 | service | `MostVotesCount` | implements CountingMethod | tallies every selection; the top `seats` candidates win (1 for SELECT_ONE) |
@@ -66,7 +67,7 @@ Five packages under `com.election`, each with one job. `Application.java` only w
 | service | `CountingMethodRegistry` | class | `EnumMap<BallotType, CountingMethod>`: picks the counting method for a category |
 | service | `BallotFactory` | class | builds the right `Ballot` subclass from a category and the raw choices text; used by the loader and the console |
 | service | `VotingService` | class | `castVote(voterId, ballot)`: user exists and can vote, category exists, its election is OPEN, not voted in this category, ballot valid; then records it |
-| service | `TallyService` | class | counts every category of a CLOSED election; returns `Map<Category, CategoryResult>` in file order |
+| service | `TallyService` | class | `closedElections()` and `findClosedElection(id)` for the results menu; counts every category of a CLOSED election; returns `Map<Category, CategoryResult>` in file order |
 | loader | `DataLoader<T>` | interface | `List<T> load(Path)` throws `DataLoadException` |
 | loader | `CsvReader` | class | skips header, splits lines, reports line numbers |
 | loader | `UserCsvLoader` | implements DataLoader | builds an `Administrator` or `Voter` from the role column |
@@ -127,7 +128,13 @@ V010,VOTER
 id,name,date,status,createdBy
 E1,Student Council 2026,2026-11-10,OPEN,A1
 E2,Sports Club Captain 2026,2026-12-01,DRAFT,A2
+E3,Student Council 2025,2025-11-12,CLOSED,A1
+E4,Library Committee 2026,2026-04-22,CLOSED,A2
+E5,Graduation Speaker 2026,2026-10-30,OPEN,A2
+E6,Debate Club President 2027,2027-01-15,DRAFT,A1
 ```
+
+E3 to E6 cover every status for both administrators, so the menus have something to show. They have no categories, candidates or ballots yet.
 
 **categories.csv** (`seats` is the number of winners; always 1 for SELECT_ONE and YES_NO)
 
@@ -236,11 +243,11 @@ Five decisions to settle before coding; the README asks for 2 to 5, so these cov
 
 How SOLID shows up:
 
-- **Single responsibility:** loading, election management, ballot creation, voting, counting and display are separate classes.
+- **Single responsibility:** loading, storage (repositories), election management, ballot creation, voting, counting and display are separate classes. Menus only read input and print; they ask a service for anything that involves a rule.
 - **Open/closed:** adding a ranked ballot later means a new `Ballot` subclass, a new `CountingMethod`, an enum value and one registry entry; `TallyService`, `VotingService` and the existing counting methods stay untouched. A new role, such as an observer who can only view results, is a new `User` subclass.
 - **Liskov substitution:** any `User` works wherever the services expect one; `MostVotesCount` reads any ballot through `selections()`, so single and multiple choice ballots are interchangeable to it.
 - **Interface segregation:** `ManagementPermission`, `VotingPermission`, `CountingMethod`, `DataLoader<T>` and `Menu` each have one method, so a class only depends on the one it needs.
-- **Dependency inversion:** `TallyService` depends on the `CountingMethod` interface through the registry, never on `MostVotesCount` or `YesNoCount` directly; `Application` only talks to the `Menu` interface.
+- **Dependency inversion:** `TallyService` depends on the `CountingMethod` interface through `CountingMethodRegistry`, never on `MostVotesCount` or `YesNoCount` directly; `Application` only talks to the `Menu` interface.
 
 ## Test plan
 

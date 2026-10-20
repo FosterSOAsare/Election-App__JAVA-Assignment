@@ -1,7 +1,12 @@
 package com.election;
 
+import com.election.loader.ElectionCsvLoader;
 import com.election.loader.UserCsvLoader;
+import com.election.model.Election;
 import com.election.model.User;
+import com.election.repository.ElectionRepository;
+import com.election.repository.UserRepository;
+import com.election.service.TallyService;
 import com.election.ui.AdminMenu;
 import com.election.ui.Menu;
 import com.election.ui.VoterMenu;
@@ -17,12 +22,18 @@ public class Application {
     public static void main(String[] args) {
         // Wiring only: load the CSV files, build the services, log the user in, start their menu.
         List<User> users;
+        List<Election> elections;
         try {
             users = new UserCsvLoader().load(Path.of("src/main/resources/users.csv"));
+            elections = new ElectionCsvLoader().load(Path.of("src/main/resources/elections.csv"));
         } catch (IOException e) {
-            System.out.println("Could not read users.csv: " + e.getMessage());
+            System.out.println("Could not read the data files: " + e.getMessage());
             return;
         }
+
+        UserRepository userRepository = new UserRepository(users);
+        ElectionRepository electionRepository = new ElectionRepository(elections);
+        TallyService tallyService = new TallyService(electionRepository);
 
         System.out.println("Welcome to ELECTION APP");
 
@@ -34,10 +45,7 @@ public class Application {
             System.out.print("Enter your user ID: ");
             String userId = scanner.nextLine().trim();
 
-            user = users.stream()
-                    .filter(u -> u.getId().equalsIgnoreCase(userId))
-                    .findFirst();
-
+            user = userRepository.findById(userId);
             if (user.isEmpty()) {
                 System.out.println("Unknown user ID: " + userId + ". Try again.");
             }
@@ -49,7 +57,7 @@ public class Application {
 
         Menu menu;
         if (loggedIn.canManageElections()) {
-            menu = new AdminMenu(loggedIn, scanner);
+            menu = new AdminMenu(loggedIn, tallyService, scanner);
         } else {
             menu = new VoterMenu(loggedIn, scanner);
         }

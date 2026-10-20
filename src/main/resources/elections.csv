@@ -1,3 +1,7 @@
 id,name,date,status,createdBy
 E1,Student Council 2026,2026-11-10,OPEN,A1
 E2,Sports Club Captain 2026,2026-12-01,DRAFT,A2
+E3,Student Council 2025,2025-11-12,CLOSED,A1
+E4,Library Committee 2026,2026-04-22,CLOSED,A2
+E5,Graduation Speaker 2026,2026-10-30,OPEN,A2
+E6,Debate Club President 2027,2027-01-15,DRAFT,A1
