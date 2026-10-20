@@ -1,8 +1,8 @@
 package com.election;
 
+import com.election.loader.CategoryCsvLoader;
 import com.election.loader.ElectionCsvLoader;
 import com.election.loader.UserCsvLoader;
-import com.election.model.Election;
 import com.election.model.User;
 import com.election.repository.ElectionRepository;
 import com.election.repository.UserRepository;
@@ -14,7 +14,6 @@ import com.election.ui.VoterMenu;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -24,19 +23,20 @@ public class Application {
         // Wiring only: load the CSV files, build the services, log the user in, start their menu.
         Path usersFile = Path.of("src/main/resources/users.csv");
         Path electionsFile = Path.of("src/main/resources/elections.csv");
+        Path categoriesFile = Path.of("src/main/resources/categories.csv");
 
-        List<User> users;
-        List<Election> elections;
+        // Order matters: categories need their elections to exist already.
+        UserRepository userRepository;
+        ElectionRepository electionRepository;
         try {
-            users = new UserCsvLoader().load(usersFile);
-            elections = new ElectionCsvLoader().load(electionsFile);
+            userRepository = new UserRepository(new UserCsvLoader().load(usersFile));
+            electionRepository = new ElectionRepository(new ElectionCsvLoader().load(electionsFile));
+            new CategoryCsvLoader(electionRepository).load(categoriesFile);
         } catch (IOException e) {
             System.out.println("Could not read the data files: " + e.getMessage());
             return;
         }
 
-        UserRepository userRepository = new UserRepository(users);
-        ElectionRepository electionRepository = new ElectionRepository(elections);
         ElectionManagementService managementService = new ElectionManagementService(electionRepository);
         TallyService tallyService = new TallyService(electionRepository);
 

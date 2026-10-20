@@ -50,8 +50,8 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `ElectionStatus` | enum | DRAFT, OPEN, CLOSED |
 | model | `Category` | class | id, electionId, name, ballot type, seats, its candidates |
 | model | `BallotType` | enum | SELECT_ONE, SELECT_MULTIPLE, YES_NO |
-| model | `Candidate` | class | id, name, party, categoryId |
-| model | `Ballot` | abstract class | voterId, categoryId; abstract `selections()` returns the chosen option ids; abstract `validate(Category)` |
+| model | `Candidate` | class | id, name, party, electionId, categoryId |
+| model | `Ballot` | abstract class | voterId, electionId, categoryId; abstract `selections()` returns the chosen option ids; abstract `validate(Category)` |
 | model | `SingleChoiceBallot` | extends Ballot | exactly 1 candidate from this category |
 | model | `MultipleChoiceBallot` | extends Ballot | 1 to `seats` distinct candidates from this category |
 | model | `YesNoBallot` | extends Ballot | a yes or no answer; `selections()` returns `YES` or `NO` |
@@ -59,7 +59,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `CandidateResult` | extends CategoryResult | `List<Candidate>` winners, candidates tied for the last seat |
 | model | `YesNoResult` | extends CategoryResult | yes count, no count, passed |
 | repository | `UserRepository` | class | `Map<String, User>`; `findById` ignores case; rejects duplicate ids |
-| repository | `ElectionRepository` | class | `LinkedHashMap<String, Election>` in file order; `findAll`, `findById`, `findByStatus`, `add`, `delete`, `nextId`; finds the election a category belongs to |
+| repository | `ElectionRepository` | class | `LinkedHashMap<String, Election>` in file order; `findAll`, `findById`, `findByStatus`, `add`, `delete`, `nextId` |
 | service | `ElectionManagementService` | class | admin actions: `createElection`, `addCategory`, `addCandidate`, `openElection`, `closeElection`; checks the actor's role, that the actor created the election, and the election's state |
 | service | `CountingMethod` | interface | `CategoryResult count(Category, List<Ballot>)` |
 | service | `MostVotesCount` | implements CountingMethod | tallies every selection; the top `seats` candidates win (1 for SELECT_ONE) |
@@ -140,84 +140,93 @@ E3 to E6 cover every status for both administrators, so the menus have something
 
 ```csv
 id,electionId,name,ballotType,seats
-PRES,E1,President,SELECT_ONE,1
-COMM,E1,Committee members,SELECT_MULTIPLE,2
-FEE,E1,Raise the club fee to 10 euros?,YES_NO,1
-CAPT,E2,Club captain,SELECT_ONE,1
+CAT1,E1,President,SELECT_ONE,1
+CAT2,E1,Committee members,SELECT_MULTIPLE,2
+CAT3,E1,Raise the club fee to 10 euros?,YES_NO,1
+CAT1,E2,Club captain,SELECT_ONE,1
+CAT1,E3,President,SELECT_ONE,1
+CAT2,E3,Treasurer,SELECT_ONE,1
+CAT1,E4,Library committee,SELECT_MULTIPLE,3
+CAT2,E4,Extend opening hours to 22:00?,YES_NO,1
+CAT1,E5,Graduation speaker,SELECT_ONE,1
+CAT1,E6,Debate club president,SELECT_ONE,1
+CAT2,E6,Introduce a 5 euro membership fee?,YES_NO,1
 ```
+
+Category ids are numbered inside their election (`CAT1`, `CAT2`, ...), so the same id can appear in several elections. A category is identified by the pair electionId + categoryId, which is why candidates.csv and ballots.csv carry both columns. `CategoryCsvLoader` adds each category to its election and rejects an unknown election id, or an id or name already used in that election. It does not read `ballotType` and `seats` yet.
 
 **candidates.csv** (YES_NO categories have no candidates)
 
 ```csv
-id,name,party,categoryId
-C1,Amara Mensah,Unity,PRES
-C2,Kofi Boateng,Progress,PRES
-C3,Lena Dubois,Green Future,PRES
-C4,Yaw Darko,Unity,COMM
-C5,Marie Laurent,Progress,COMM
-C6,Kwesi Appiah,Green Future,COMM
-C7,Julia Weber,Independent,COMM
-C8,Nana Acheampong,Independent,CAPT
-C9,Tom Fischer,Independent,CAPT
+id,name,party,electionId,categoryId
+C1,Amara Mensah,Unity,E1,CAT1
+C2,Kofi Boateng,Progress,E1,CAT1
+C3,Lena Dubois,Green Future,E1,CAT1
+C4,Yaw Darko,Unity,E1,CAT2
+C5,Marie Laurent,Progress,E1,CAT2
+C6,Kwesi Appiah,Green Future,E1,CAT2
+C7,Julia Weber,Independent,E1,CAT2
+C8,Nana Acheampong,Independent,E2,CAT1
+C9,Tom Fischer,Independent,E2,CAT1
 ```
 
 **ballots.csv** (one row per voter per category; the format of `choices` depends on the category's ballot type)
 
 ```csv
-voterId,categoryId,choices
-V001,PRES,C1
-V002,PRES,C1
-V003,PRES,C1
-V004,PRES,C1
-V005,PRES,C2
-V006,PRES,C2
-V007,PRES,C2
-V008,PRES,C3
-V009,PRES,C3
-V001,COMM,C4|C5
-V002,COMM,C4|C6
-V003,COMM,C5
-V004,COMM,C4|C7
-V005,COMM,C5|C6
-V006,COMM,C4|C5
-V007,COMM,C6|C7
-V008,COMM,C4
-V010,COMM,C5|C7
-V001,FEE,YES
-V002,FEE,NO
-V003,FEE,YES
-V004,FEE,YES
-V005,FEE,NO
-V006,FEE,YES
-V007,FEE,NO
-V008,FEE,YES
-V010,FEE,YES
-V003,PRES,C2
-V005,PRES,C4
-V009,COMM,C4|C5|C6
-V009,FEE,MAYBE
-V099,PRES,C1
-V001,VP,C1
-A1,PRES,C1
-V001,CAPT,C8
+voterId,electionId,categoryId,choices
+V001,E1,CAT1,C1
+V002,E1,CAT1,C1
+V003,E1,CAT1,C1
+V004,E1,CAT1,C1
+V005,E1,CAT1,C2
+V006,E1,CAT1,C2
+V007,E1,CAT1,C2
+V008,E1,CAT1,C3
+V009,E1,CAT1,C3
+V001,E1,CAT2,C4|C5
+V002,E1,CAT2,C4|C6
+V003,E1,CAT2,C5
+V004,E1,CAT2,C4|C7
+V005,E1,CAT2,C5|C6
+V006,E1,CAT2,C4|C5
+V007,E1,CAT2,C6|C7
+V008,E1,CAT2,C4
+V010,E1,CAT2,C5|C7
+V001,E1,CAT3,YES
+V002,E1,CAT3,NO
+V003,E1,CAT3,YES
+V004,E1,CAT3,YES
+V005,E1,CAT3,NO
+V006,E1,CAT3,YES
+V007,E1,CAT3,NO
+V008,E1,CAT3,YES
+V010,E1,CAT3,YES
+V003,E1,CAT1,C2
+V005,E1,CAT1,C4
+V009,E1,CAT2,C4|C5|C6
+V009,E1,CAT3,MAYBE
+V099,E1,CAT1,C1
+V001,E1,VP,C1
+A1,E1,CAT1,C1
+V001,E2,CAT1,C8
 ```
 
 The last eight ballot rows are invalid on purpose, so startup shows the error handling:
 
 | Row | Problem | Rejected with |
 | --- | --- | --- |
-| `V003,PRES,C2` | V003 already voted for President | `DuplicateVoteException` |
-| `V005,PRES,C4` | C4 is a committee candidate, not a presidential one | `InvalidBallotException` |
-| `V009,COMM,C4\|C5\|C6` | 3 choices, but the committee has 2 seats | `InvalidBallotException` |
-| `V009,FEE,MAYBE` | answer must be YES or NO | `InvalidBallotException` |
-| `V099,PRES,C1` | not a known user | `IneligibleVoterException` |
-| `V001,VP,C1` | no category called VP | `InvalidBallotException` |
-| `A1,PRES,C1` | administrators cannot vote | `IneligibleVoterException` |
-| `V001,CAPT,C8` | election E2 is still a draft | `ElectionStateException` |
+| `V003,E1,CAT1,C2` | V003 already voted for President | `DuplicateVoteException` |
+| `V005,E1,CAT1,C4` | C4 is a committee candidate, not a presidential one | `InvalidBallotException` |
+| `V009,E1,CAT2,C4\|C5\|C6` | 3 choices, but the committee has 2 seats | `InvalidBallotException` |
+| `V009,E1,CAT3,MAYBE` | answer must be YES or NO | `InvalidBallotException` |
+| `V099,E1,CAT1,C1` | not a known user | `IneligibleVoterException` |
+| `V001,E1,VP,C1` | no category called VP | `InvalidBallotException` |
+| `A1,E1,CAT1,C1` | administrators cannot vote | `IneligibleVoterException` |
+| `V001,E2,CAT1,C8` | election E2 is still a draft | `ElectionStateException` |
 
 V010 skips the President vote and V009 ends up with no valid committee or fee vote. Both are allowed: voting in a category is optional.
 
-Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it.
+Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Ballot type, seats and candidates for these categories come later.
 
 ## Expected results
 

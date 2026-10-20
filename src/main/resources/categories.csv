@@ -1,5 +1,12 @@
 id,electionId,name,ballotType,seats
-PRES,E1,President,SELECT_ONE,1
-COMM,E1,Committee members,SELECT_MULTIPLE,2
-FEE,E1,Raise the club fee to 10 euros?,YES_NO,1
-CAPT,E2,Club captain,SELECT_ONE,1
+CAT1,E1,President,SELECT_ONE,1
+CAT2,E1,Committee members,SELECT_MULTIPLE,2
+CAT3,E1,Raise the club fee to 10 euros?,YES_NO,1
+CAT1,E2,Club captain,SELECT_ONE,1
+CAT1,E3,President,SELECT_ONE,1
+CAT2,E3,Treasurer,SELECT_ONE,1
+CAT1,E4,Library committee,SELECT_MULTIPLE,3
+CAT2,E4,Extend opening hours to 22:00?,YES_NO,1
+CAT1,E5,Graduation speaker,SELECT_ONE,1
+CAT1,E6,Debate club president,SELECT_ONE,1
+CAT2,E6,Introduce a 5 euro membership fee?,YES_NO,1

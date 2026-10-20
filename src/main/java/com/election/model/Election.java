@@ -1,6 +1,9 @@
 package com.election.model;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Election {
 
@@ -9,6 +12,9 @@ public class Election {
     private final LocalDate date;
     private final String createdBy;
     private ElectionStatus status;
+
+    // LinkedHashMap keeps the categories in the order they were added.
+    private final Map<String, Category> categoriesById = new LinkedHashMap<>();
 
     public Election(String id, String name, LocalDate date, ElectionStatus status, String createdBy) {
         if (id == null || id.isBlank()) {
@@ -42,5 +48,24 @@ public class Election {
 
     public String getCreatedBy() {
         return createdBy;
+    }
+
+    public List<Category> getCategories() {
+        return List.copyOf(categoriesById.values());
+    }
+
+    public void addCategory(Category category) {
+        if (!category.getElectionId().equals(id)) {
+            throw new IllegalArgumentException("Category " + category.getId() + " belongs to another election");
+        }
+        if (categoriesById.containsKey(category.getId())) {
+            throw new IllegalArgumentException("Duplicate category id " + category.getId() + " in " + id);
+        }
+        boolean nameTaken = categoriesById.values().stream()
+                .anyMatch(c -> c.getName().equalsIgnoreCase(category.getName()));
+        if (nameTaken) {
+            throw new IllegalArgumentException("Category " + category.getName() + " already exists in " + name);
+        }
+        categoriesById.put(category.getId(), category);
     }
 }
