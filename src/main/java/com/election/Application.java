@@ -2,6 +2,9 @@ package com.election;
 
 import com.election.loader.UserCsvLoader;
 import com.election.model.User;
+import com.election.ui.AdminMenu;
+import com.election.ui.Menu;
+import com.election.ui.VoterMenu;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -43,6 +46,14 @@ public class Application {
         User loggedIn = user.get();
         String role = loggedIn.canManageElections() ? "administrator" : "voter";
         System.out.println("Logged in as " + loggedIn.getId() + " (" + role + ")");
+
+        Menu menu;
+        if (loggedIn.canManageElections()) {
+            menu = new AdminMenu(loggedIn, scanner);
+        } else {
+            menu = new VoterMenu(loggedIn, scanner);
+        }
+        menu.run();
 
         scanner.close();
     }
