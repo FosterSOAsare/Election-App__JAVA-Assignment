@@ -144,7 +144,8 @@ public class ElectionView {
         }
     }
 
-    private String typeDescription(Category category) {
+    /** "Select one", "Yes / No", or "Select multiple, 3 winners". Also used by ResultView. */
+    static String typeDescription(Category category) {
         String type = category.getBallotType().getLabel();
         if (category.getBallotType() == BallotType.SELECT_MULTIPLE) {
             type += ", " + category.getSeats() + " winners";

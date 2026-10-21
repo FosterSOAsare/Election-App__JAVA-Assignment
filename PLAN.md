@@ -36,7 +36,7 @@ Scope rule: get SELECT_ONE voting working end to end first, then the admin actio
 
 ## Class list
 
-Six packages under `com.election`, each with one job. Repositories store objects and find them; services hold the business rules and use the repositories. `Application.java` only wires the pieces together, asks the user to log in by id, and starts the right menu.
+Six packages under `com.election`, each with one job. Repositories store objects and find them; services hold the business rules and use the repositories. `Application.java` only wires the pieces together, asks the user to log in by id, and starts the right menu. "0. Log out" in either menu returns to the login prompt, with the data kept in memory, so several users can take turns in one run; typing `exit` at the login prompt quits.
 
 | Package | Class | Kind | Responsibility |
 | --- | --- | --- | --- |
@@ -88,7 +88,8 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | ui | `MenuFactory` | class | picks `AdminMenu` or `VoterMenu` from `user.canManageElections()` |
 | ui | `ConsoleInput` | class | wraps the one `Scanner`; every keyboard read (line, required text, date, number, numbered choice, comma-separated names) re-asks until the answer has the right shape |
 | ui | `ElectionView` | class | prints elections: the padded election table, an election's categories with their type and candidates, and a newly created election |
-| ui | `ConsoleView` | class | prints each category's `summary()` and lists rejected ballots |
+| ui | `ResultView` | class | prints an election's results: each category's header, ballot count and `summary()`, whatever the result type |
+| ui | `ResultsScreen` | implements Menu | "View election results", shared by both menus: list closed elections, pick one, show `TallyService.count` through `ResultView` |
 
 The ballot type lives on the category, not on each ballot. `BallotFactory` reads it to build the right subclass, so file votes and console votes go through the same rules.
 

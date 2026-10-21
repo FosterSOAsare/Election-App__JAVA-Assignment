@@ -9,6 +9,7 @@ import com.election.loader.UserCsvLoader;
 import com.election.model.User;
 import com.election.repository.ElectionRepository;
 import com.election.repository.UserRepository;
+import com.election.service.CountingMethodRegistry;
 import com.election.service.ElectionManagementService;
 import com.election.service.TallyService;
 import com.election.service.VotingService;
@@ -52,7 +53,7 @@ public class Application {
         }
 
         ElectionManagementService managementService = new ElectionManagementService(electionRepository);
-        TallyService tallyService = new TallyService(electionRepository);
+        TallyService tallyService = new TallyService(electionRepository, new CountingMethodRegistry());
         VotingService votingService = new VotingService(electionRepository);
 
         System.out.println("Welcome to ELECTION APP");
@@ -61,29 +62,45 @@ public class Application {
         Scanner scanner = new Scanner(System.in);
         ConsoleInput input = new ConsoleInput(scanner);
 
-        // Keep asking until the ID matches a loaded user.
-        Optional<User> user = Optional.empty();
-        while (user.isEmpty()) {
-            String userId = input.readLine("Enter your user ID: ");
-
-            user = userRepository.findById(userId);
+        // Log in, use the menu, log out, and repeat until someone types "exit" at the login prompt.
+        // The data stays in memory between logins, so one user's votes are there for the next.
+        while (true) {
+            Optional<User> user = login(userRepository, input);
             if (user.isEmpty()) {
-                System.out.println("Unknown user ID: " + userId + ". Try again.");
+                break;
             }
+
+            User loggedIn = user.get();
+            String role = loggedIn.canManageElections() ? "administrator" : "voter";
+            System.out.println("Logged in as " + loggedIn.getId() + " (" + role + ")");
+
+            Menu menu;
+            if (loggedIn.canManageElections()) {
+                menu = new AdminMenu(loggedIn, managementService, tallyService, input);
+            } else {
+                menu = new VoterMenu(loggedIn, votingService, tallyService, input);
+            }
+            menu.run();
         }
 
-        User loggedIn = user.get();
-        String role = loggedIn.canManageElections() ? "administrator" : "voter";
-        System.out.println("Logged in as " + loggedIn.getId() + " (" + role + ")");
-
-        Menu menu;
-        if (loggedIn.canManageElections()) {
-            menu = new AdminMenu(loggedIn, managementService, tallyService, input);
-        } else {
-            menu = new VoterMenu(loggedIn, votingService, input);
-        }
-        menu.run();
-
+        System.out.println("Goodbye.");
         scanner.close();
+    }
+
+    /** Keeps asking until the ID matches a loaded user. Empty means the person typed "exit". */
+    private static Optional<User> login(UserRepository userRepository, ConsoleInput input) {
+        while (true) {
+            System.out.println();
+            String userId = input.readLine("Enter your user ID (or 'exit' to quit): ");
+            if (userId.equalsIgnoreCase("exit")) {
+                return Optional.empty();
+            }
+
+            Optional<User> user = userRepository.findById(userId);
+            if (user.isPresent()) {
+                return user;
+            }
+            System.out.println("Unknown user ID: " + userId + ". Try again.");
+        }
     }
 }

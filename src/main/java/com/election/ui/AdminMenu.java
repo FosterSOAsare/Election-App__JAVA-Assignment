@@ -19,16 +19,16 @@ public class AdminMenu implements Menu {
 
     private final User admin;
     private final ElectionManagementService managementService;
-    private final TallyService tallyService;
     private final ConsoleInput input;
+    private final ResultsScreen resultsScreen;
     private final ElectionView view = new ElectionView();
 
     public AdminMenu(User admin, ElectionManagementService managementService, TallyService tallyService,
                      ConsoleInput input) {
         this.admin = admin;
         this.managementService = managementService;
-        this.tallyService = tallyService;
         this.input = input;
+        this.resultsScreen = new ResultsScreen(tallyService, input);
     }
 
     @Override
@@ -41,19 +41,19 @@ public class AdminMenu implements Menu {
             System.out.println("2. View all elections");
             System.out.println("3. Manage an election");
             System.out.println("4. View election results");
-            System.out.println("0. Exit");
+            System.out.println("0. Log out");
 
             String choice = input.readLine("> ");
             switch (choice) {
                 case "1" -> createElection();
                 case "2" -> viewAllElections();
                 case "3" -> System.out.println("Not built yet.");
-                case "4" -> viewResults();
+                case "4" -> resultsScreen.run();
                 case "0" -> running = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
         }
-        System.out.println("Goodbye.");
+        System.out.println("Logged out.");
     }
 
     private void viewAllElections() {
@@ -123,22 +123,5 @@ public class AdminMenu implements Menu {
             }
             System.out.println("With " + seats + " winners you need at least " + (seats + 1) + " candidates.");
         }
-    }
-
-    private void viewResults() {
-        List<Election> closed = tallyService.closedElections();
-        if (closed.isEmpty()) {
-            System.out.println("No elections have been closed yet.");
-            return;
-        }
-        view.printElectionTable("Closed elections:", closed);
-
-        String electionId = input.readLine("Election ID to view: ");
-        Optional<Election> selected = tallyService.findClosedElection(electionId);
-        if (selected.isEmpty()) {
-            System.out.println("No closed election with ID " + electionId);
-            return;
-        }
-        System.out.println("Results for " + selected.get().getName() + ": not built yet.");
     }
 }
