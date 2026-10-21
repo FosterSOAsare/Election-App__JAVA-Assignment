@@ -66,7 +66,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | service | `YesNoCount` | implements CountingMethod | passes when yes votes outnumber no votes |
 | service | `CountingMethodRegistry` | class | `EnumMap<BallotType, CountingMethod>`: picks the counting method for a category |
 | service | `BallotFactory` | class | builds the right `Ballot` subclass from a category and the raw choices text; used by the loader and the console |
-| service | `VotingService` | class | `castVote(voterId, ballot)`: user exists and can vote, category exists, its election is OPEN, not voted in this category, ballot valid; then records it |
+| service | `VotingService` | class | `prepareBallot(voter, election, categoryId, choices)` checks one answer without storing it: user can vote, election is OPEN, voter has not voted in this election yet, category exists, choices fit the ballot type (candidate ids are matched ignoring case). `submitBallots` re-checks every prepared ballot and stores them all together, or none. `hasVoted(voter, election)`: a voter submits once per election, so any ballot of theirs in it counts |
 | service | `TallyService` | class | `closedElections()` and `findClosedElection(id)` for the results menu; counts every category of a CLOSED election; returns `Map<Category, CategoryResult>` in file order |
 | loader | `DataLoader<T>` | interface | `List<T> load(Path)` throws `DataLoadException` |
 | loader | `CsvReader` | class | skips header, splits lines, reports line numbers |
@@ -84,7 +84,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | exception | `DataLoadException` | checked | wraps `IOException`, `DateTimeParseException`, malformed rows, unknown role or ballot type, bad seat count, unknown election or category id |
 | ui | `Menu` | interface | `void run()` |
 | ui | `AdminMenu` | implements Menu | create election, add category, add candidate, open, close, view results |
-| ui | `VoterMenu` | implements Menu | list open elections, vote, view results of closed elections |
+| ui | `VoterMenu` | implements Menu | list open elections; vote: pick an open election; a voter who has already voted in it is told so and sees no categories; otherwise answer each category (Enter skips one, an invalid answer is asked again), then review a summary of every category (skipped ones included) and choose Submit, Change an answer (re-asks one category, then shows the summary again) or Cancel; ballots are saved only on Submit; view results of closed elections |
 | ui | `MenuFactory` | class | picks `AdminMenu` or `VoterMenu` from `user.canManageElections()` |
 | ui | `ConsoleInput` | class | wraps the one `Scanner`; every keyboard read (line, required text, date, number, numbered choice, comma-separated names) re-asks until the answer has the right shape |
 | ui | `ElectionView` | class | prints elections: the padded election table, an election's categories with their type and candidates, and a newly created election |

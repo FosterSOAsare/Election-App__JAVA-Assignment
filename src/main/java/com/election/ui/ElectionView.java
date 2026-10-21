@@ -7,6 +7,7 @@ import com.election.model.Category;
 import com.election.model.Election;
 
 import java.util.List;
+import java.util.Map;
 
 /** Prints elections, their categories and their candidates. Reads nothing and changes nothing. */
 public class ElectionView {
@@ -56,6 +57,44 @@ public class ElectionView {
         for (Ballot ballot : ballots) {
             System.out.printf(row, ballot.getVoterId(), ballot.getCategoryId(), String.join(", ", ballot.getChoices()));
         }
+    }
+
+    /** One category as the voter sees it: its name and type, then the candidates to choose from. */
+    public void printBallotPaper(Category category) {
+        System.out.println(category.getName() + "  [" + typeDescription(category) + "]");
+        int idWidth = category.getCandidates().stream().mapToInt(c -> c.getId().length()).max().orElse(0);
+        for (Candidate candidate : category.getCandidates()) {
+            System.out.printf("  %-" + idWidth + "s  %s%n", candidate.getId(), candidate.getName());
+        }
+    }
+
+    /**
+     * What the voter chose in every category of the election, before they submit.
+     * Candidate ids are shown with their names; a category without an answer shows "(skipped)".
+     *
+     * @param answers category id to the prepared ballot for it
+     */
+    public void printVoteSummary(Election election, Map<String, Ballot> answers) {
+        int nameWidth = election.getCategories().stream().mapToInt(c -> c.getName().length()).max().orElse(0);
+
+        System.out.println();
+        System.out.println("Your votes in " + election.getId() + " " + election.getName() + ":");
+        for (Category category : election.getCategories()) {
+            Ballot ballot = answers.get(category.getId());
+            String shown = ballot == null ? "(skipped)" : describeChoices(category, ballot);
+            System.out.printf("  %-" + nameWidth + "s  %s%n", category.getName(), shown);
+        }
+    }
+
+    private String describeChoices(Category category, Ballot ballot) {
+        List<String> shown = ballot.getChoices().stream()
+                .map(choice -> category.getCandidates().stream()
+                        .filter(c -> c.getId().equals(choice))
+                        .map(c -> c.getId() + " " + c.getName())
+                        .findFirst()
+                        .orElse(choice))   // YES / NO are not candidates, so they are shown as they are
+                .toList();
+        return String.join(", ", shown);
     }
 
     public void printCreatedElection(Election election) {

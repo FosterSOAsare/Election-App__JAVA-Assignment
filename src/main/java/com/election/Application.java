@@ -11,6 +11,7 @@ import com.election.repository.ElectionRepository;
 import com.election.repository.UserRepository;
 import com.election.service.ElectionManagementService;
 import com.election.service.TallyService;
+import com.election.service.VotingService;
 import com.election.ui.AdminMenu;
 import com.election.ui.ConsoleInput;
 import com.election.ui.Menu;
@@ -52,6 +53,7 @@ public class Application {
 
         ElectionManagementService managementService = new ElectionManagementService(electionRepository);
         TallyService tallyService = new TallyService(electionRepository);
+        VotingService votingService = new VotingService(electionRepository);
 
         System.out.println("Welcome to ELECTION APP");
 
@@ -78,7 +80,7 @@ public class Application {
         if (loggedIn.canManageElections()) {
             menu = new AdminMenu(loggedIn, managementService, tallyService, input);
         } else {
-            menu = new VoterMenu(loggedIn, input);
+            menu = new VoterMenu(loggedIn, votingService, input);
         }
         menu.run();
 
