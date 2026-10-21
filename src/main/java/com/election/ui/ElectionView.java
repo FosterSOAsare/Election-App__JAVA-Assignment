@@ -37,26 +37,13 @@ public class ElectionView {
         printCategories(election, "  ");
     }
 
-    /** Every ballot in the election as a table, in file order, for example "V001  CAT2  C4, C5". */
-    public void printBallots(Election election) {
-        List<Ballot> ballots = election.getBallots();
+    /** Only how many people have voted, never who voted for what: the ballot is secret. */
+    public void printTurnout(Election election) {
+        long voters = election.getBallots().stream().map(Ballot::getVoterId).distinct().count();
         System.out.println();
-        if (ballots.isEmpty()) {
-            System.out.println("No ballots have been cast in " + election.getId() + " yet.");
-            return;
-        }
-
-        int voterWidth = Math.max("Voter".length(),
-                ballots.stream().mapToInt(b -> b.getVoterId().length()).max().orElse(0));
-        int categoryWidth = Math.max("Category".length(),
-                ballots.stream().mapToInt(b -> b.getCategoryId().length()).max().orElse(0));
-        String row = "  %-" + voterWidth + "s  %-" + categoryWidth + "s  %s%n";
-
-        System.out.println("Ballots in " + election.getId() + " (" + ballots.size() + "):");
-        System.out.printf(row, "Voter", "Category", "Choices");
-        for (Ballot ballot : ballots) {
-            System.out.printf(row, ballot.getVoterId(), ballot.getCategoryId(), String.join(", ", ballot.getChoices()));
-        }
+        System.out.println(voters == 0
+                ? "No one has voted in " + election.getId() + " yet."
+                : voters + (voters == 1 ? " person has" : " people have") + " voted in " + election.getId() + ".");
     }
 
     /** One category as the voter sees it: its name and type, then the candidates to choose from. */

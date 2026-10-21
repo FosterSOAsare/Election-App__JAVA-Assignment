@@ -288,7 +288,7 @@ The last eight ballot rows are invalid on purpose, so startup shows the error ha
 | `A1,E1,CAT1,C1` | administrators cannot vote | `IneligibleVoterException` |
 | `V001,E2,CAT1,C8` | election E2 is still a draft | `ElectionStateException` |
 
-For now `BallotCsvLoader` only checks the column count and that the election exists, and stores every row in its election as a plain `Ballot`; View all elections lists them. The voting rules below, the abstract `Ballot` with its subclasses, and counting come next, and that is when these eight rows start being rejected.
+For now `BallotCsvLoader` only checks the column count and that the election exists, and stores every row in its election as a plain `Ballot`. Ballots are secret: View all elections only shows how many people have voted, never who chose what. The voting rules below, the abstract `Ballot` with its subclasses, and counting come next, and that is when these eight rows start being rejected.
 
 V010 skips the President vote and V009 ends up with no valid committee or fee vote. Both are allowed: voting in a category is optional.
 
