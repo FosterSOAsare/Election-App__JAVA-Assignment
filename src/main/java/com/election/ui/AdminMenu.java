@@ -20,6 +20,7 @@ public class AdminMenu implements Menu {
     private final User admin;
     private final ElectionManagementService managementService;
     private final ConsoleInput input;
+    private final ManageElectionsMenu manageMenu;
     private final ResultsScreen resultsScreen;
     private final ElectionView view = new ElectionView();
 
@@ -28,6 +29,7 @@ public class AdminMenu implements Menu {
         this.admin = admin;
         this.managementService = managementService;
         this.input = input;
+        this.manageMenu = new ManageElectionsMenu(admin, managementService, input);
         this.resultsScreen = new ResultsScreen(tallyService, input);
     }
 
@@ -39,7 +41,7 @@ public class AdminMenu implements Menu {
             System.out.println("--- Admin menu (" + admin.getId() + ") ---");
             System.out.println("1. Create election");
             System.out.println("2. View all elections");
-            System.out.println("3. Manage an election");
+            System.out.println("3. Manage elections");
             System.out.println("4. View election results");
             System.out.println("0. Log out");
 
@@ -47,7 +49,7 @@ public class AdminMenu implements Menu {
             switch (choice) {
                 case "1" -> createElection();
                 case "2" -> viewAllElections();
-                case "3" -> System.out.println("Not built yet.");
+                case "3" -> manageMenu.run();
                 case "4" -> resultsScreen.run();
                 case "0" -> running = false;
                 default -> System.out.println("Unknown option: " + choice);

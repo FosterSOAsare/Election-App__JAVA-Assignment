@@ -30,6 +30,27 @@ public class ElectionManagementService {
         return electionRepository.findById(id);
     }
 
+    /**
+     * The elections this admin created that are in the given status.
+     * An admin may only manage their own elections: DRAFT ones to edit, OPEN ones to close.
+     */
+    public List<Election> findAdminElections(User admin, ElectionStatus status) {
+        return electionRepository.findByStatus(status).stream()
+                .filter(e -> isCreatedBy(e, admin))
+                .toList();
+    }
+
+    /** One election this admin created, in the given status; empty if the id is unknown, in another status, or someone else's. */
+    public Optional<Election> findAnElectionByAdmin(User admin, ElectionStatus status, String id) {
+        return electionRepository.findById(id)
+                .filter(e -> e.getStatus() == status)
+                .filter(e -> isCreatedBy(e, admin));
+    }
+
+    private boolean isCreatedBy(Election election, User admin) {
+        return election.getCreatedBy().equalsIgnoreCase(admin.getId());
+    }
+
     /** What the admin typed for one category; ids are given out by createElection. */
     public record NewCategory(String name, BallotType ballotType, int seats, List<String> candidateNames) {
     }
