@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class Election {
 
@@ -52,6 +53,10 @@ public class Election {
 
     public List<Category> getCategories() {
         return List.copyOf(categoriesById.values());
+    }
+
+    public Optional<Category> findCategory(String categoryId) {
+        return Optional.ofNullable(categoriesById.get(categoryId));
     }
 
     public void addCategory(Category category) {

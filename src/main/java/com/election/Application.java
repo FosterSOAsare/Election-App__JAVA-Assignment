@@ -1,5 +1,6 @@
 package com.election;
 
+import com.election.loader.CandidateCsvLoader;
 import com.election.loader.CategoryCsvLoader;
 import com.election.loader.ElectionCsvLoader;
 import com.election.loader.UserCsvLoader;
@@ -24,14 +25,16 @@ public class Application {
         Path usersFile = Path.of("src/main/resources/users.csv");
         Path electionsFile = Path.of("src/main/resources/elections.csv");
         Path categoriesFile = Path.of("src/main/resources/categories.csv");
+        Path candidatesFile = Path.of("src/main/resources/candidates.csv");
 
-        // Order matters: categories need their elections to exist already.
+        // Order matters: categories need their elections, and candidates need their categories.
         UserRepository userRepository;
         ElectionRepository electionRepository;
         try {
             userRepository = new UserRepository(new UserCsvLoader().load(usersFile));
             electionRepository = new ElectionRepository(new ElectionCsvLoader().load(electionsFile));
             new CategoryCsvLoader(electionRepository).load(categoriesFile);
+            new CandidateCsvLoader(electionRepository).load(candidatesFile);
         } catch (IOException e) {
             System.out.println("Could not read the data files: " + e.getMessage());
             return;

@@ -50,7 +50,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `ElectionStatus` | enum | DRAFT, OPEN, CLOSED |
 | model | `Category` | class | id, electionId, name, ballot type, seats, its candidates |
 | model | `BallotType` | enum | SELECT_ONE, SELECT_MULTIPLE, YES_NO |
-| model | `Candidate` | class | id, name, party, electionId, categoryId |
+| model | `Candidate` | class | id, name, electionId, categoryId |
 | model | `Ballot` | abstract class | voterId, electionId, categoryId; abstract `selections()` returns the chosen option ids; abstract `validate(Category)` |
 | model | `SingleChoiceBallot` | extends Ballot | exactly 1 candidate from this category |
 | model | `MultipleChoiceBallot` | extends Ballot | 1 to `seats` distinct candidates from this category |
@@ -158,17 +158,19 @@ Category ids are numbered inside their election (`CAT1`, `CAT2`, ...), so the sa
 **candidates.csv** (YES_NO categories have no candidates)
 
 ```csv
-id,name,party,electionId,categoryId
-C1,Amara Mensah,Unity,E1,CAT1
-C2,Kofi Boateng,Progress,E1,CAT1
-C3,Lena Dubois,Green Future,E1,CAT1
-C4,Yaw Darko,Unity,E1,CAT2
-C5,Marie Laurent,Progress,E1,CAT2
-C6,Kwesi Appiah,Green Future,E1,CAT2
-C7,Julia Weber,Independent,E1,CAT2
-C8,Nana Acheampong,Independent,E2,CAT1
-C9,Tom Fischer,Independent,E2,CAT1
+id,name,electionId,categoryId
+C1,Amara Mensah,E1,CAT1
+C2,Kofi Boateng,E1,CAT1
+C3,Lena Dubois,E1,CAT1
+C4,Yaw Darko,E1,CAT2
+C5,Marie Laurent,E1,CAT2
+C6,Kwesi Appiah,E1,CAT2
+C7,Julia Weber,E1,CAT2
+C8,Nana Acheampong,E2,CAT1
+C9,Tom Fischer,E2,CAT1
 ```
+
+`CandidateCsvLoader` finds the election, then the category inside it (`election.findCategory`), and adds the candidate there. It rejects an unknown election, a category that is not in that election, a candidate id already used in that election, and a name already standing in that category. Candidate ids only need to be unique inside their election.
 
 **ballots.csv** (one row per voter per category; the format of `choices` depends on the category's ballot type)
 
@@ -226,7 +228,7 @@ The last eight ballot rows are invalid on purpose, so startup shows the error ha
 
 V010 skips the President vote and V009 ends up with no valid committee or fee vote. Both are allowed: voting in a category is optional.
 
-Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Ballot type, seats and candidates for these categories come later.
+Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Then, for each category in turn, the admin enters its candidates the same way (`Ama Owusu, Kofi Mensah`); at least one is required and a name cannot appear twice in the same category, though the same person may stand in two categories. Candidates are numbered across the whole election (`C1`, `C2`, ...). Ballot type and seats for these categories come later.
 
 ## Expected results
 

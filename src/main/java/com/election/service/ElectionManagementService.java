@@ -1,5 +1,6 @@
 package com.election.service;
 
+import com.election.model.Candidate;
 import com.election.model.Category;
 import com.election.model.Election;
 import com.election.model.ElectionStatus;
@@ -8,6 +9,7 @@ import com.election.repository.ElectionRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Administrator actions on elections. */
@@ -29,14 +31,29 @@ public class ElectionManagementService {
 
     /**
      * A new election always starts as a DRAFT owned by the admin who created it.
-     * Its categories are numbered CAT1, CAT2, ... inside the election; election id + category id is the full key.
+     * Its categories are numbered CAT1, CAT2, ... and its candidates C1, C2, ... inside the election,
+     * so election id + category id (or candidate id) is the full key.
+     *
+     * @param candidatesByCategory each category name, in order, mapped to its candidate names
      */
-    public Election createElection(User admin, String name, LocalDate date, List<String> categoryNames) {
+    public Election createElection(User admin, String name, LocalDate date,
+                                   Map<String, List<String>> candidatesByCategory) {
         Election election = new Election(electionRepository.nextId(), name, date, ElectionStatus.DRAFT, admin.getId());
-        for (int i = 0; i < categoryNames.size(); i++) {
-            String categoryId = "CAT" + (i + 1);
-            election.addCategory(new Category(categoryId, election.getId(), categoryNames.get(i)));
+
+        int categoryNumber = 0;
+        int candidateNumber = 0;
+        for (Map.Entry<String, List<String>> entry : candidatesByCategory.entrySet()) {
+            categoryNumber++;
+            Category category = new Category("CAT" + categoryNumber, election.getId(), entry.getKey());
+            election.addCategory(category);
+
+            for (String candidateName : entry.getValue()) {
+                candidateNumber++;
+                category.addCandidate(new Candidate("C" + candidateNumber, candidateName,
+                        election.getId(), category.getId()));
+            }
         }
+
         electionRepository.add(election);
         return election;
     }

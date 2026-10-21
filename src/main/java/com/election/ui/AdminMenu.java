@@ -1,5 +1,6 @@
 package com.election.ui;
 
+import com.election.model.Candidate;
 import com.election.model.Category;
 import com.election.model.Election;
 import com.election.model.User;
@@ -9,7 +10,9 @@ import com.election.service.TallyService;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -61,10 +64,17 @@ public class AdminMenu implements Menu {
             return;
         }
 
+        // Pad each column to its longest value so the table lines up.
+        int idWidth = Math.max("ID".length(), elections.stream().mapToInt(e -> e.getId().length()).max().orElse(0));
+        int nameWidth = Math.max("Name".length(),
+                elections.stream().mapToInt(e -> e.getName().length()).max().orElse(0));
+        String row = "  %-" + idWidth + "s  %-" + nameWidth + "s  %-10s  %-6s  %s%n";
+
         System.out.println("All elections:");
+        System.out.printf(row, "ID", "Name", "Date", "Status", "Created by");
         for (Election election : elections) {
-            System.out.println("  " + election.getId() + "  " + election.getName() + "  " + election.getDate()
-                    + "  " + election.getStatus() + "  created by " + election.getCreatedBy());
+            System.out.printf(row, election.getId(), election.getName(), election.getDate(),
+                    election.getStatus(), election.getCreatedBy());
         }
 
         System.out.print("Election ID to see its categories (Enter to go back): ");
@@ -80,15 +90,46 @@ public class AdminMenu implements Menu {
         }
 
         Election election = selected.get();
-        List<Category> categories = election.getCategories();
-        if (categories.isEmpty()) {
+        if (election.getCategories().isEmpty()) {
             System.out.println(election.getName() + " has no categories yet.");
             return;
         }
 
-        System.out.println("Categories in " + election.getName() + ":");
+        System.out.println();
+        System.out.println("Categories in " + election.getId() + " " + election.getName() + ":");
+        printCategories(election, "  ");
+    }
+
+    /**
+     * Prints each category with its candidates indented underneath, for example:
+     *   CAT1  President
+     *         C1  Amara Mensah
+     *         C2  Kofi Boateng
+     * Id widths are taken from the longest id in the whole election, so every category lines up.
+     */
+    private void printCategories(Election election, String indent) {
+        List<Category> categories = election.getCategories();
+
+        int categoryIdWidth = categories.stream().mapToInt(c -> c.getId().length()).max().orElse(0);
+        int candidateIdWidth = categories.stream()
+                .flatMap(c -> c.getCandidates().stream())
+                .mapToInt(c -> c.getId().length())
+                .max()
+                .orElse(0);
+
+        // Candidates start under the category name, not under its id.
+        String candidateIndent = indent + " ".repeat(categoryIdWidth + 2);
+        String categoryRow = indent + "%-" + categoryIdWidth + "s  %s%n";
+        String candidateRow = candidateIndent + "%-" + candidateIdWidth + "s  %s%n";
+
         for (Category category : categories) {
-            System.out.println("  " + category.getId() + "  " + category.getName());
+            System.out.printf(categoryRow, category.getId(), category.getName());
+            if (category.getCandidates().isEmpty()) {
+                System.out.println(candidateIndent + "(no candidates)");
+            }
+            for (Candidate candidate : category.getCandidates()) {
+                System.out.printf(candidateRow, candidate.getId(), candidate.getName());
+            }
         }
     }
 
@@ -114,9 +155,16 @@ public class AdminMenu implements Menu {
             }
         }
 
-        List<String> categoryNames = readCategoryNames();
+        List<String> categoryNames = readNames("Categories, separated by commas (e.g. President, Treasurer): ");
 
-        Election election = managementService.createElection(admin, name, date, categoryNames);
+        // LinkedHashMap keeps the categories in the order they were typed.
+        Map<String, List<String>> candidatesByCategory = new LinkedHashMap<>();
+        for (String categoryName : categoryNames) {
+            candidatesByCategory.put(categoryName,
+                    readNames("Candidates for " + categoryName + ", separated by commas: "));
+        }
+
+        Election election = managementService.createElection(admin, name, date, candidatesByCategory);
         System.out.println("Created election:");
         System.out.println("  ID:         " + election.getId());
         System.out.println("  Name:       " + election.getName());
@@ -124,27 +172,25 @@ public class AdminMenu implements Menu {
         System.out.println("  Status:     " + election.getStatus());
         System.out.println("  Created by: " + election.getCreatedBy());
         System.out.println("  Categories:");
-        for (Category category : election.getCategories()) {
-            System.out.println("    " + category.getId() + "  " + category.getName());
-        }
+        printCategories(election, "    ");
     }
 
-    /** Keeps asking until the admin enters at least one category and no name twice. */
-    private List<String> readCategoryNames() {
+    /** Reads a comma-separated list. Keeps asking until there is at least one name and no name twice. */
+    private List<String> readNames(String prompt) {
         while (true) {
-            System.out.print("Categories, separated by commas (e.g. President, Treasurer): ");
+            System.out.print(prompt);
             List<String> names = Arrays.stream(scanner.nextLine().split(","))
                     .map(String::trim)
                     .filter(n -> !n.isEmpty())
                     .toList();
 
             if (names.isEmpty()) {
-                System.out.println("Enter at least one category.");
+                System.out.println("Enter at least one name.");
                 continue;
             }
             long distinct = names.stream().map(String::toLowerCase).distinct().count();
             if (distinct != names.size()) {
-                System.out.println("Each category can only be entered once.");
+                System.out.println("Each name can only be entered once.");
                 continue;
             }
             return names;

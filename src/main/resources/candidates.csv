@@ -1,10 +1,10 @@
-id,name,party,electionId,categoryId
-C1,Amara Mensah,Unity,E1,CAT1
-C2,Kofi Boateng,Progress,E1,CAT1
-C3,Lena Dubois,Green Future,E1,CAT1
-C4,Yaw Darko,Unity,E1,CAT2
-C5,Marie Laurent,Progress,E1,CAT2
-C6,Kwesi Appiah,Green Future,E1,CAT2
-C7,Julia Weber,Independent,E1,CAT2
-C8,Nana Acheampong,Independent,E2,CAT1
-C9,Tom Fischer,Independent,E2,CAT1
+id,name,electionId,categoryId
+C1,Amara Mensah,E1,CAT1
+C2,Kofi Boateng,E1,CAT1
+C3,Lena Dubois,E1,CAT1
+C4,Yaw Darko,E1,CAT2
+C5,Marie Laurent,E1,CAT2
+C6,Kwesi Appiah,E1,CAT2
+C7,Julia Weber,E1,CAT2
+C8,Nana Acheampong,E2,CAT1
+C9,Tom Fischer,E2,CAT1
