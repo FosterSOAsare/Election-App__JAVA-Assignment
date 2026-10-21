@@ -172,6 +172,21 @@ C6,Kwesi Appiah,E1,CAT2
 C7,Julia Weber,E1,CAT2
 C8,Nana Acheampong,E2,CAT1
 C9,Tom Fischer,E2,CAT1
+C1,Daniel Osei,E3,CAT1
+C2,Emma Schulz,E3,CAT1
+C3,Farid Benali,E3,CAT1
+C4,Grace Mensah,E3,CAT2
+C5,Hans Becker,E3,CAT2
+C1,Isaac Boateng,E4,CAT1
+C2,Julia Novak,E4,CAT1
+C3,Kwame Asante,E4,CAT1
+C4,Lea Martin,E4,CAT1
+C5,Musa Diallo,E4,CAT1
+C1,Nora Haddad,E5,CAT1
+C2,Omar Farouk,E5,CAT1
+C3,Priya Nair,E5,CAT1
+C1,Quentin Moreau,E6,CAT1
+C2,Rosa Alvarez,E6,CAT1
 ```
 
 `CandidateCsvLoader` finds the election, then the category inside it (`election.findCategory`), and adds the candidate there. It rejects an unknown election, a category that is not in that election, a candidate id already used in that election, and a name already standing in that category. Candidate ids only need to be unique inside their election.
@@ -207,6 +222,48 @@ V006,E1,CAT3,YES
 V007,E1,CAT3,NO
 V008,E1,CAT3,YES
 V010,E1,CAT3,YES
+V001,E3,CAT1,C1
+V002,E3,CAT1,C1
+V003,E3,CAT1,C1
+V004,E3,CAT1,C1
+V005,E3,CAT1,C1
+V006,E3,CAT1,C2
+V007,E3,CAT1,C2
+V008,E3,CAT1,C2
+V009,E3,CAT1,C3
+V010,E3,CAT1,C3
+V001,E3,CAT2,C4
+V002,E3,CAT2,C4
+V003,E3,CAT2,C4
+V004,E3,CAT2,C4
+V005,E3,CAT2,C5
+V006,E3,CAT2,C5
+V007,E3,CAT2,C5
+V008,E3,CAT2,C5
+V001,E4,CAT1,C1|C2|C3
+V002,E4,CAT1,C1|C2|C4
+V003,E4,CAT1,C1|C3|C5
+V004,E4,CAT1,C1|C2
+V005,E4,CAT1,C2|C3|C4
+V006,E4,CAT1,C1|C4|C5
+V007,E4,CAT1,C2|C3
+V008,E4,CAT1,C1|C5
+V009,E4,CAT1,C3|C4
+V010,E4,CAT1,C1|C2
+V001,E4,CAT2,YES
+V002,E4,CAT2,YES
+V003,E4,CAT2,YES
+V004,E4,CAT2,YES
+V005,E4,CAT2,YES
+V006,E4,CAT2,YES
+V007,E4,CAT2,YES
+V008,E4,CAT2,NO
+V009,E4,CAT2,NO
+V010,E4,CAT2,NO
+V001,E5,CAT1,C1
+V002,E5,CAT1,C2
+V003,E5,CAT1,C1
+V004,E5,CAT1,C3
 V003,E1,CAT1,C2
 V005,E1,CAT1,C4
 V009,E1,CAT2,C4|C5|C6
@@ -230,6 +287,8 @@ The last eight ballot rows are invalid on purpose, so startup shows the error ha
 | `A1,E1,CAT1,C1` | administrators cannot vote | `IneligibleVoterException` |
 | `V001,E2,CAT1,C8` | election E2 is still a draft | `ElectionStateException` |
 
+For now `BallotCsvLoader` only checks the column count and that the election exists, and stores every row in its election as a plain `Ballot`; View all elections lists them. The voting rules below, the abstract `Ballot` with its subclasses, and counting come next, and that is when these eight rows start being rejected.
+
 V010 skips the President vote and V009 ends up with no valid committee or fee vote. Both are allowed: voting in a category is optional.
 
 Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Then, for each category in turn, the admin picks its type from a numbered list (Select one, Select multiple, Yes / No); a Select multiple category also asks how many winners (2 or more). Unless it is Yes / No, the admin then enters its candidates the same way (`Ama Owusu, Kofi Mensah`); at least one is required and a name cannot appear twice in the same category, though the same person may stand in two categories. Candidates are numbered across the whole election (`C1`, `C2`, ...). A Select multiple category needs more candidates than winners, and a Yes / No category never has candidates.
@@ -245,6 +304,17 @@ Once administrator A1 closes E1, Amara Mensah wins President, Yaw Darko and Mari
 | Raise the club fee to 10 euros? | 9 | YES 6, NO 3 | Passed (66.7% yes) |
 
 C4 and C5 tie on 5 votes, but both win because there are 2 seats. A tie only matters at the last seat. E2 stays a draft with no ballots until A2 opens it. These numbers double as the expected values in the end-to-end test.
+
+E3 and E4 are already CLOSED, so their results show straight away:
+
+| Election | Category | Valid ballots | Tally | Result |
+| --- | --- | --- | --- | --- |
+| E3 | President | 10 | C1 5, C2 3, C3 2 | C1 Daniel Osei elected |
+| E3 | Treasurer | 8 | C4 4, C5 4 | Tie: C4 Grace Mensah and C5 Hans Becker, seat undecided |
+| E4 | Library committee (3 seats) | 10 | C1 7, C2 6, C3 5, C4 4, C5 3 | C1 Isaac Boateng, C2 Julia Novak and C3 Kwame Asante elected |
+| E4 | Extend opening hours to 22:00? | 10 | YES 7, NO 3 | Passed (70.0% yes) |
+
+E5 is OPEN with 4 ballots so far (C1 2, C2 1, C3 1), and E6 is a DRAFT with candidates but no ballots.
 
 ## Design decisions
 

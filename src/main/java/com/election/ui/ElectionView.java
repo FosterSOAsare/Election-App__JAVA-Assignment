@@ -1,5 +1,6 @@
 package com.election.ui;
 
+import com.election.model.Ballot;
 import com.election.model.BallotType;
 import com.election.model.Candidate;
 import com.election.model.Category;
@@ -33,6 +34,28 @@ public class ElectionView {
         System.out.println();
         System.out.println("Categories in " + election.getId() + " " + election.getName() + ":");
         printCategories(election, "  ");
+    }
+
+    /** Every ballot in the election as a table, in file order, for example "V001  CAT2  C4, C5". */
+    public void printBallots(Election election) {
+        List<Ballot> ballots = election.getBallots();
+        System.out.println();
+        if (ballots.isEmpty()) {
+            System.out.println("No ballots have been cast in " + election.getId() + " yet.");
+            return;
+        }
+
+        int voterWidth = Math.max("Voter".length(),
+                ballots.stream().mapToInt(b -> b.getVoterId().length()).max().orElse(0));
+        int categoryWidth = Math.max("Category".length(),
+                ballots.stream().mapToInt(b -> b.getCategoryId().length()).max().orElse(0));
+        String row = "  %-" + voterWidth + "s  %-" + categoryWidth + "s  %s%n";
+
+        System.out.println("Ballots in " + election.getId() + " (" + ballots.size() + "):");
+        System.out.printf(row, "Voter", "Category", "Choices");
+        for (Ballot ballot : ballots) {
+            System.out.printf(row, ballot.getVoterId(), ballot.getCategoryId(), String.join(", ", ballot.getChoices()));
+        }
     }
 
     public void printCreatedElection(Election election) {

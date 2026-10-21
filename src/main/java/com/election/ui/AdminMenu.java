@@ -64,7 +64,7 @@ public class AdminMenu implements Menu {
         }
         view.printElectionTable("All elections:", elections);
 
-        String electionId = input.readLine("Election ID to see its categories (Enter to go back): ");
+        String electionId = input.readLine("Election ID to see its categories and ballots (Enter to go back): ");
         if (electionId.isEmpty()) {
             return;
         }
@@ -75,6 +75,7 @@ public class AdminMenu implements Menu {
             return;
         }
         view.printElectionCategories(selected.get());
+        view.printBallots(selected.get());
     }
 
     private void createElection() {

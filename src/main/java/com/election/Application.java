@@ -1,6 +1,7 @@
 package com.election;
 
 import com.election.exception.InvalidNameException;
+import com.election.loader.BallotCsvLoader;
 import com.election.loader.CandidateCsvLoader;
 import com.election.loader.CategoryCsvLoader;
 import com.election.loader.ElectionCsvLoader;
@@ -29,6 +30,7 @@ public class Application {
         Path electionsFile = Path.of("src/main/resources/elections.csv");
         Path categoriesFile = Path.of("src/main/resources/categories.csv");
         Path candidatesFile = Path.of("src/main/resources/candidates.csv");
+        Path ballotsFile = Path.of("src/main/resources/ballots.csv");
 
         // Order matters: categories need their elections, and candidates need their categories.
         UserRepository userRepository;
@@ -38,6 +40,7 @@ public class Application {
             electionRepository = new ElectionRepository(new ElectionCsvLoader().load(electionsFile));
             new CategoryCsvLoader(electionRepository).load(categoriesFile);
             new CandidateCsvLoader(electionRepository).load(candidatesFile);
+            new BallotCsvLoader(electionRepository).load(ballotsFile);
         } catch (IOException e) {
             System.out.println("Could not read the data files: " + e.getMessage());
             return;

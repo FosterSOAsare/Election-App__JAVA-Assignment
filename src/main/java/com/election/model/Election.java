@@ -1,6 +1,7 @@
 package com.election.model;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,7 @@ public class Election {
 
     // LinkedHashMap keeps the categories in the order they were added.
     private final Map<String, Category> categoriesById = new LinkedHashMap<>();
+    private final List<Ballot> ballots = new ArrayList<>();
 
     public Election(String id, String name, LocalDate date, ElectionStatus status, String createdBy) {
         if (id == null || id.isBlank()) {
@@ -57,6 +59,17 @@ public class Election {
 
     public Optional<Category> findCategory(String categoryId) {
         return Optional.ofNullable(categoriesById.get(categoryId));
+    }
+
+    public List<Ballot> getBallots() {
+        return List.copyOf(ballots);
+    }
+
+    public void addBallot(Ballot ballot) {
+        if (!ballot.getElectionId().equals(id)) {
+            throw new IllegalArgumentException("Ballot from " + ballot.getVoterId() + " belongs to another election");
+        }
+        ballots.add(ballot);
     }
 
     public void addCategory(Category category) {
