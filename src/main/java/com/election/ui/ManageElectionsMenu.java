@@ -1,5 +1,6 @@
 package com.election.ui;
 
+import com.election.exception.ElectionException;
 import com.election.model.Election;
 import com.election.model.ElectionStatus;
 import com.election.model.User;
@@ -31,29 +32,29 @@ public class ManageElectionsMenu implements Menu {
         while (running) {
             System.out.println();
             System.out.println("--- Manage elections ---");
-            System.out.println("1. Edit a draft election");
+            System.out.println("1. Manage a draft");
             System.out.println("2. Close an election");
             System.out.println("0. Back");
 
             String choice = input.readLine("> ");
             switch (choice) {
-                case "1" -> pickDraftToEdit();
-                case "2" -> listElectionsToClose();
+                case "1" -> pickDraftToManage();
+                case "2" -> pickElectionToClose();
                 case "0" -> running = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
         }
     }
 
-    private void pickDraftToEdit() {
+    private void pickDraftToManage() {
         List<Election> drafts = managementService.findAdminElections(admin, ElectionStatus.DRAFT);
         if (drafts.isEmpty()) {
-            System.out.println("You have no draft elections. Only drafts can be edited.");
+            System.out.println("You have no draft elections. Only drafts can be managed.");
             return;
         }
         view.printElectionTable("Your draft elections:", drafts);
 
-        String electionId = input.readLine("Election ID to edit (Enter to go back): ");
+        String electionId = input.readLine("Draft ID to manage (Enter to go back): ");
         if (electionId.isEmpty()) {
             return;
         }
@@ -62,14 +63,14 @@ public class ManageElectionsMenu implements Menu {
             System.out.println("None of your drafts has the ID " + electionId);
             return;
         }
-        editElection(selected.get());
+        manageDraft(selected.get());
     }
 
-    private void editElection(Election election) {
-        boolean editing = true;
-        while (editing) {
+    private void manageDraft(Election election) {
+        boolean managing = true;
+        while (managing) {
             System.out.println();
-            System.out.println("--- Edit " + election.getId() + " " + election.getName() + " ---");
+            System.out.println("--- Manage draft " + election.getId() + " " + election.getName() + " ---");
             System.out.println("1. Edit election details");
             System.out.println("2. Edit categories");
             System.out.println("3. Edit candidates");
@@ -78,19 +79,46 @@ public class ManageElectionsMenu implements Menu {
             String choice = input.readLine("> ");
             switch (choice) {
                 case "1", "2", "3" -> System.out.println("Not built yet.");
-                case "0" -> editing = false;
+                case "0" -> managing = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
         }
     }
 
-    private void listElectionsToClose() {
+    private void pickElectionToClose() {
         List<Election> open = managementService.findAdminElections(admin, ElectionStatus.OPEN);
         if (open.isEmpty()) {
             System.out.println("You have no open elections. Only open elections can be closed.");
             return;
         }
         view.printElectionTable("Your open elections:", open);
-        System.out.println("Closing is not built yet.");
+
+        String electionId = input.readLine("Election ID to close (Enter to go back): ");
+        if (electionId.isEmpty()) {
+            return;
+        }
+        Optional<Election> selected = managementService.findAnElectionByAdmin(admin, ElectionStatus.OPEN, electionId);
+        if (selected.isEmpty()) {
+            System.out.println("None of your open elections has the ID " + electionId);
+            return;
+        }
+        Election election = selected.get();
+
+        // Closing cannot be undone, so ask first.
+        System.out.println("Closing " + election.getId() + " " + election.getName()
+                + " ends voting for good and makes its results available.");
+        String confirm = input.readLine("Close it? (yes/no): ");
+        if (!confirm.equalsIgnoreCase("yes") && !confirm.equalsIgnoreCase("y")) {
+            System.out.println(election.getId() + " is still open.");
+            return;
+        }
+
+        try {
+            managementService.closeElection(admin, election);
+            System.out.println(election.getId() + " is now " + election.getStatus()
+                    + ". Its results are under View election results.");
+        } catch (ElectionException e) {
+            System.out.println("Could not close " + election.getId() + ": " + e.getMessage());
+        }
     }
 }

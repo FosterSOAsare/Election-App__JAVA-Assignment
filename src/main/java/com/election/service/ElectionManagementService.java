@@ -1,6 +1,8 @@
 package com.election.service;
 
+import com.election.exception.ElectionException;
 import com.election.exception.InvalidNameException;
+import com.election.exception.UnauthorizedActionException;
 import com.election.model.BallotType;
 import com.election.model.Candidate;
 import com.election.model.Category;
@@ -45,6 +47,26 @@ public class ElectionManagementService {
         return electionRepository.findById(id)
                 .filter(e -> e.getStatus() == status)
                 .filter(e -> isCreatedBy(e, admin));
+    }
+
+    /**
+     * Ends voting. Permissions are checked first: the user must be an administrator,
+     * and the administrator who created this election. Election.close() then refuses anything not OPEN.
+     */
+    public void closeElection(User admin, Election election) throws ElectionException {
+        requireCreator(admin, election, "close");
+        election.close();
+    }
+
+    private void requireCreator(User admin, Election election, String action) throws UnauthorizedActionException {
+        if (!admin.canManageElections()) {
+            throw new UnauthorizedActionException(admin.getId() + " is not an administrator, so cannot "
+                    + action + " elections");
+        }
+        if (!isCreatedBy(election, admin)) {
+            throw new UnauthorizedActionException(admin.getId() + " cannot " + action + " " + election.getId()
+                    + ": only its creator, " + election.getCreatedBy() + ", can");
+        }
     }
 
     private boolean isCreatedBy(Election election, User admin) {

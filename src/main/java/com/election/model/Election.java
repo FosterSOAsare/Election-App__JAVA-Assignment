@@ -1,5 +1,7 @@
 package com.election.model;
 
+import com.election.exception.ElectionStateException;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -51,6 +53,15 @@ public class Election {
 
     public String getCreatedBy() {
         return createdBy;
+    }
+
+    /** OPEN to CLOSED. The lifecycle only moves forward, so closing anything that is not OPEN is refused. */
+    public void close() throws ElectionStateException {
+        if (status != ElectionStatus.OPEN) {
+            throw new ElectionStateException(id + " cannot be closed because it is " + status
+                    + "; only OPEN elections can be closed");
+        }
+        status = ElectionStatus.CLOSED;
     }
 
     public List<Category> getCategories() {
