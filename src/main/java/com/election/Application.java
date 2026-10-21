@@ -1,5 +1,6 @@
 package com.election;
 
+import com.election.exception.InvalidNameException;
 import com.election.loader.CandidateCsvLoader;
 import com.election.loader.CategoryCsvLoader;
 import com.election.loader.ElectionCsvLoader;
@@ -15,6 +16,7 @@ import com.election.ui.VoterMenu;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -37,6 +39,10 @@ public class Application {
             new CandidateCsvLoader(electionRepository).load(candidatesFile);
         } catch (IOException e) {
             System.out.println("Could not read the data files: " + e.getMessage());
+            return;
+        } catch (InvalidNameException | IllegalArgumentException | DateTimeParseException e) {
+            // A file was readable but one of its rows is wrong: bad name, unknown id, duplicate, bad date or enum.
+            System.out.println("Invalid data: " + e.getMessage());
             return;
         }
 

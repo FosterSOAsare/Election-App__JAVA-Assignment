@@ -74,6 +74,8 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | loader | `ElectionCsvLoader`, `CategoryCsvLoader`, `CandidateCsvLoader` | implement DataLoader | one per file |
 | loader | `BallotCsvLoader` | implements DataLoader | reads raw ballot rows and passes them to `BallotFactory` |
 | exception | `ElectionException` | checked base | parent of the business exceptions |
+| exception | `InvalidNameException` | extends ElectionException | a candidate name is empty or uses characters `NameRules` does not allow |
+| model | `NameRules` | final class | the one place that defines a valid name: letters (any language), digits, spaces, hyphens, apostrophes and full stops; never commas, which separate CSV columns and console lists. `Candidate`'s constructor enforces it |
 | exception | `UnauthorizedActionException` | extends ElectionException | a voter tries an admin action, or an admin manages another admin's election |
 | exception | `ElectionStateException` | extends ElectionException | action not allowed in the current state: editing an open election, voting in a draft or closed one, results before closing, opening a category with no candidates |
 | exception | `IneligibleVoterException` | extends ElectionException | user is unknown, or is an administrator |
@@ -311,6 +313,12 @@ JUnit tests target the business logic, grouped by the class under test. Tick eac
 - [ ] SELECT_MULTIPLE with exactly `seats` choices is accepted (edge case)
 - [ ] YES_NO answer other than YES or NO throws `InvalidBallotException`
 - [ ] Unknown category throws `InvalidBallotException`
+
+**NameRules / Candidate**
+
+- [ ] `Amara Mensah`, `Jean-Luc Picard`, `Conan O'Brien`, `Dr. Who`, `Agent 47` and `Inès Moreau` are accepted
+- [ ] An empty name, a comma, or a symbol such as `@` or `#` throws `InvalidNameException`
+- [ ] A candidates.csv row with an invalid name is rejected with its line number
 
 **Loader tests**
 

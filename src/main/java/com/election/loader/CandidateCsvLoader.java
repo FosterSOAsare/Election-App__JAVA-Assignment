@@ -1,5 +1,6 @@
 package com.election.loader;
 
+import com.election.exception.InvalidNameException;
 import com.election.model.Candidate;
 import com.election.model.Category;
 import com.election.model.Election;
@@ -22,7 +23,7 @@ public class CandidateCsvLoader {
         this.electionRepository = electionRepository;
     }
 
-    public List<Candidate> load(Path path) throws IOException {
+    public List<Candidate> load(Path path) throws IOException, InvalidNameException {
         List<String> lines = Files.readAllLines(path);
         List<Candidate> candidates = new ArrayList<>();
         // A candidate id only has to be unique inside its election, so the key is "electionId:candidateId".
@@ -58,11 +59,7 @@ public class CandidateCsvLoader {
             }
 
             Candidate candidate = new Candidate(id, name, election.getId(), category.getId());
-            try {
-                category.addCandidate(candidate);
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException(where + e.getMessage());
-            }
+            category.addCandidate(candidate);
             candidates.add(candidate);
         }
         return candidates;

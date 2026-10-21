@@ -48,11 +48,7 @@ public class CategoryCsvLoader {
             // Category ids only have to be unique inside their election (CAT1 can exist in E1 and E2),
             // so the election itself rejects a repeated id or name.
             Category category = new Category(id, election.getId(), name);
-            try {
-                election.addCategory(category);
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException(where + e.getMessage());
-            }
+            election.addCategory(category);
             categories.add(category);
         }
         return categories;

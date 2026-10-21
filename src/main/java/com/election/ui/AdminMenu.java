@@ -1,8 +1,10 @@
 package com.election.ui;
 
+import com.election.exception.InvalidNameException;
 import com.election.model.Candidate;
 import com.election.model.Category;
 import com.election.model.Election;
+import com.election.model.NameRules;
 import com.election.model.User;
 import com.election.service.ElectionManagementService;
 import com.election.service.TallyService;
@@ -155,16 +157,23 @@ public class AdminMenu implements Menu {
             }
         }
 
-        List<String> categoryNames = readNames("Categories, separated by commas (e.g. President, Treasurer): ");
+        List<String> categoryNames = readNames("Categories, separated by commas (e.g. President, Treasurer): ",
+                false);
 
         // LinkedHashMap keeps the categories in the order they were typed.
         Map<String, List<String>> candidatesByCategory = new LinkedHashMap<>();
         for (String categoryName : categoryNames) {
             candidatesByCategory.put(categoryName,
-                    readNames("Candidates for " + categoryName + ", separated by commas: "));
+                    readNames("Candidates for " + categoryName + ", separated by commas: ", true));
         }
 
-        Election election = managementService.createElection(admin, name, date, candidatesByCategory);
+        Election election;
+        try {
+            election = managementService.createElection(admin, name, date, candidatesByCategory);
+        } catch (InvalidNameException e) {
+            System.out.println("Could not create election: " + e.getMessage());
+            return;
+        }
         System.out.println("Created election:");
         System.out.println("  ID:         " + election.getId());
         System.out.println("  Name:       " + election.getName());
@@ -175,8 +184,11 @@ public class AdminMenu implements Menu {
         printCategories(election, "    ");
     }
 
-    /** Reads a comma-separated list. Keeps asking until there is at least one name and no name twice. */
-    private List<String> readNames(String prompt) {
+    /**
+     * Reads a comma-separated list. Keeps asking until there is at least one name, no name twice,
+     * and, if checkNameRules is true, every name passes NameRules.
+     */
+    private List<String> readNames(String prompt, boolean checkNameRules) {
         while (true) {
             System.out.print(prompt);
             List<String> names = Arrays.stream(scanner.nextLine().split(","))
@@ -192,6 +204,15 @@ public class AdminMenu implements Menu {
             if (distinct != names.size()) {
                 System.out.println("Each name can only be entered once.");
                 continue;
+            }
+            if (checkNameRules) {
+                Optional<String> invalid = names.stream()
+                        .filter(n -> !NameRules.isValidName(n))
+                        .findFirst();
+                if (invalid.isPresent()) {
+                    System.out.println("'" + invalid.get() + "' may only contain " + NameRules.ALLOWED_DESCRIPTION + ".");
+                    continue;
+                }
             }
             return names;
         }

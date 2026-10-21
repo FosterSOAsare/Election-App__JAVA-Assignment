@@ -1,5 +1,6 @@
 package com.election.service;
 
+import com.election.exception.InvalidNameException;
 import com.election.model.Candidate;
 import com.election.model.Category;
 import com.election.model.Election;
@@ -37,7 +38,7 @@ public class ElectionManagementService {
      * @param candidatesByCategory each category name, in order, mapped to its candidate names
      */
     public Election createElection(User admin, String name, LocalDate date,
-                                   Map<String, List<String>> candidatesByCategory) {
+                                   Map<String, List<String>> candidatesByCategory) throws InvalidNameException {
         Election election = new Election(electionRepository.nextId(), name, date, ElectionStatus.DRAFT, admin.getId());
 
         int categoryNumber = 0;
