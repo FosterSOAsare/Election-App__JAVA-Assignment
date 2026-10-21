@@ -2,16 +2,14 @@ package com.election.ui;
 
 import com.election.model.User;
 
-import java.util.Scanner;
-
 public class VoterMenu implements Menu {
 
     private final User voter;
-    private final Scanner scanner;
+    private final ConsoleInput input;
 
-    public VoterMenu(User voter, Scanner scanner) {
+    public VoterMenu(User voter, ConsoleInput input) {
         this.voter = voter;
-        this.scanner = scanner;
+        this.input = input;
     }
 
     @Override
@@ -24,9 +22,8 @@ public class VoterMenu implements Menu {
             System.out.println("2. Vote in an election");
             System.out.println("3. View election results");
             System.out.println("0. Exit");
-            System.out.print("> ");
 
-            String choice = scanner.nextLine().trim();
+            String choice = input.readLine("> ");
             switch (choice) {
                 case "1", "2", "3" -> System.out.println("Not built yet.");
                 case "0" -> running = false;

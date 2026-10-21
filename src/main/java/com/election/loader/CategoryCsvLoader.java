@@ -1,5 +1,6 @@
 package com.election.loader;
 
+import com.election.model.BallotType;
 import com.election.model.Category;
 import com.election.model.Election;
 import com.election.repository.ElectionRepository;
@@ -39,7 +40,9 @@ public class CategoryCsvLoader {
             String id = columns[0].trim();
             String electionId = columns[1].trim();
             String name = columns[2].trim();
-            // Columns 3 and 4 (ballotType, seats) are not read yet.
+            // valueOf and parseInt throw IllegalArgumentException (NumberFormatException is one) on bad text.
+            BallotType ballotType = BallotType.valueOf(columns[3].trim());
+            int seats = Integer.parseInt(columns[4].trim());
 
             //  get the election this category belongs to, and add the category to it.
             Election election = electionRepository.findById(electionId)
@@ -47,7 +50,7 @@ public class CategoryCsvLoader {
 
             // Category ids only have to be unique inside their election (CAT1 can exist in E1 and E2),
             // so the election itself rejects a repeated id or name.
-            Category category = new Category(id, election.getId(), name);
+            Category category = new Category(id, election.getId(), name, ballotType, seats);
             election.addCategory(category);
             categories.add(category);
         }

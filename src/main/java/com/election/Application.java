@@ -11,6 +11,7 @@ import com.election.repository.UserRepository;
 import com.election.service.ElectionManagementService;
 import com.election.service.TallyService;
 import com.election.ui.AdminMenu;
+import com.election.ui.ConsoleInput;
 import com.election.ui.Menu;
 import com.election.ui.VoterMenu;
 
@@ -51,13 +52,14 @@ public class Application {
 
         System.out.println("Welcome to ELECTION APP");
 
+        // One Scanner for the whole run; every menu reads through the same ConsoleInput.
         Scanner scanner = new Scanner(System.in);
+        ConsoleInput input = new ConsoleInput(scanner);
 
         // Keep asking until the ID matches a loaded user.
         Optional<User> user = Optional.empty();
         while (user.isEmpty()) {
-            System.out.print("Enter your user ID: ");
-            String userId = scanner.nextLine().trim();
+            String userId = input.readLine("Enter your user ID: ");
 
             user = userRepository.findById(userId);
             if (user.isEmpty()) {
@@ -71,9 +73,9 @@ public class Application {
 
         Menu menu;
         if (loggedIn.canManageElections()) {
-            menu = new AdminMenu(loggedIn, managementService, tallyService, scanner);
+            menu = new AdminMenu(loggedIn, managementService, tallyService, input);
         } else {
-            menu = new VoterMenu(loggedIn, scanner);
+            menu = new VoterMenu(loggedIn, input);
         }
         menu.run();
 

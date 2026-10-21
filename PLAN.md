@@ -86,6 +86,8 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | ui | `AdminMenu` | implements Menu | create election, add category, add candidate, open, close, view results |
 | ui | `VoterMenu` | implements Menu | list open elections, vote, view results of closed elections |
 | ui | `MenuFactory` | class | picks `AdminMenu` or `VoterMenu` from `user.canManageElections()` |
+| ui | `ConsoleInput` | class | wraps the one `Scanner`; every keyboard read (line, required text, date, number, numbered choice, comma-separated names) re-asks until the answer has the right shape |
+| ui | `ElectionView` | class | prints elections: the padded election table, an election's categories with their type and candidates, and a newly created election |
 | ui | `ConsoleView` | class | prints each category's `summary()` and lists rejected ballots |
 
 The ballot type lives on the category, not on each ballot. `BallotFactory` reads it to build the right subclass, so file votes and console votes go through the same rules.
@@ -155,7 +157,7 @@ CAT1,E6,Debate club president,SELECT_ONE,1
 CAT2,E6,Introduce a 5 euro membership fee?,YES_NO,1
 ```
 
-Category ids are numbered inside their election (`CAT1`, `CAT2`, ...), so the same id can appear in several elections. A category is identified by the pair electionId + categoryId, which is why candidates.csv and ballots.csv carry both columns. `CategoryCsvLoader` adds each category to its election and rejects an unknown election id, or an id or name already used in that election. It does not read `ballotType` and `seats` yet.
+Category ids are numbered inside their election (`CAT1`, `CAT2`, ...), so the same id can appear in several elections. A category is identified by the pair electionId + categoryId, which is why candidates.csv and ballots.csv carry both columns. `CategoryCsvLoader` adds each category to its election and rejects an unknown election id, or an id or name already used in that election. `Category`'s constructor rejects an unknown ballot type, a SELECT_ONE or YES_NO category without exactly 1 seat, and a SELECT_MULTIPLE category with fewer than 2 seats.
 
 **candidates.csv** (YES_NO categories have no candidates)
 
@@ -230,7 +232,7 @@ The last eight ballot rows are invalid on purpose, so startup shows the error ha
 
 V010 skips the President vote and V009 ends up with no valid committee or fee vote. Both are allowed: voting in a category is optional.
 
-Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Then, for each category in turn, the admin enters its candidates the same way (`Ama Owusu, Kofi Mensah`); at least one is required and a name cannot appear twice in the same category, though the same person may stand in two categories. Candidates are numbered across the whole election (`C1`, `C2`, ...). Ballot type and seats for these categories come later.
+Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Then, for each category in turn, the admin picks its type from a numbered list (Select one, Select multiple, Yes / No); a Select multiple category also asks how many winners (2 or more). Unless it is Yes / No, the admin then enters its candidates the same way (`Ama Owusu, Kofi Mensah`); at least one is required and a name cannot appear twice in the same category, though the same person may stand in two categories. Candidates are numbered across the whole election (`C1`, `C2`, ...). A Select multiple category needs more candidates than winners, and a Yes / No category never has candidates.
 
 ## Expected results
 

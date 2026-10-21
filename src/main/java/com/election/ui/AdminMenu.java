@@ -1,36 +1,34 @@
 package com.election.ui;
 
 import com.election.exception.InvalidNameException;
-import com.election.model.Candidate;
-import com.election.model.Category;
+import com.election.model.BallotType;
 import com.election.model.Election;
-import com.election.model.NameRules;
 import com.election.model.User;
 import com.election.service.ElectionManagementService;
+import com.election.service.ElectionManagementService.NewCategory;
 import com.election.service.TallyService;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Scanner;
 
+/** The admin's choices. Reading is done by ConsoleInput and printing by ElectionView. */
 public class AdminMenu implements Menu {
 
     private final User admin;
     private final ElectionManagementService managementService;
     private final TallyService tallyService;
-    private final Scanner scanner;
+    private final ConsoleInput input;
+    private final ElectionView view = new ElectionView();
 
     public AdminMenu(User admin, ElectionManagementService managementService, TallyService tallyService,
-                     Scanner scanner) {
+                     ConsoleInput input) {
         this.admin = admin;
         this.managementService = managementService;
         this.tallyService = tallyService;
-        this.scanner = scanner;
+        this.input = input;
     }
 
     @Override
@@ -44,9 +42,8 @@ public class AdminMenu implements Menu {
             System.out.println("3. Manage an election");
             System.out.println("4. View election results");
             System.out.println("0. Exit");
-            System.out.print("> ");
 
-            String choice = scanner.nextLine().trim();
+            String choice = input.readLine("> ");
             switch (choice) {
                 case "1" -> createElection();
                 case "2" -> viewAllElections();
@@ -65,22 +62,9 @@ public class AdminMenu implements Menu {
             System.out.println("There are no elections yet.");
             return;
         }
+        view.printElectionTable("All elections:", elections);
 
-        // Pad each column to its longest value so the table lines up.
-        int idWidth = Math.max("ID".length(), elections.stream().mapToInt(e -> e.getId().length()).max().orElse(0));
-        int nameWidth = Math.max("Name".length(),
-                elections.stream().mapToInt(e -> e.getName().length()).max().orElse(0));
-        String row = "  %-" + idWidth + "s  %-" + nameWidth + "s  %-10s  %-6s  %s%n";
-
-        System.out.println("All elections:");
-        System.out.printf(row, "ID", "Name", "Date", "Status", "Created by");
-        for (Election election : elections) {
-            System.out.printf(row, election.getId(), election.getName(), election.getDate(),
-                    election.getStatus(), election.getCreatedBy());
-        }
-
-        System.out.print("Election ID to see its categories (Enter to go back): ");
-        String electionId = scanner.nextLine().trim();
+        String electionId = input.readLine("Election ID to see its categories (Enter to go back): ");
         if (electionId.isEmpty()) {
             return;
         }
@@ -90,131 +74,53 @@ public class AdminMenu implements Menu {
             System.out.println("Unknown election ID: " + electionId);
             return;
         }
-
-        Election election = selected.get();
-        if (election.getCategories().isEmpty()) {
-            System.out.println(election.getName() + " has no categories yet.");
-            return;
-        }
-
-        System.out.println();
-        System.out.println("Categories in " + election.getId() + " " + election.getName() + ":");
-        printCategories(election, "  ");
-    }
-
-    /**
-     * Prints each category with its candidates indented underneath, for example:
-     *   CAT1  President
-     *         C1  Amara Mensah
-     *         C2  Kofi Boateng
-     * Id widths are taken from the longest id in the whole election, so every category lines up.
-     */
-    private void printCategories(Election election, String indent) {
-        List<Category> categories = election.getCategories();
-
-        int categoryIdWidth = categories.stream().mapToInt(c -> c.getId().length()).max().orElse(0);
-        int candidateIdWidth = categories.stream()
-                .flatMap(c -> c.getCandidates().stream())
-                .mapToInt(c -> c.getId().length())
-                .max()
-                .orElse(0);
-
-        // Candidates start under the category name, not under its id.
-        String candidateIndent = indent + " ".repeat(categoryIdWidth + 2);
-        String categoryRow = indent + "%-" + categoryIdWidth + "s  %s%n";
-        String candidateRow = candidateIndent + "%-" + candidateIdWidth + "s  %s%n";
-
-        for (Category category : categories) {
-            System.out.printf(categoryRow, category.getId(), category.getName());
-            if (category.getCandidates().isEmpty()) {
-                System.out.println(candidateIndent + "(no candidates)");
-            }
-            for (Candidate candidate : category.getCandidates()) {
-                System.out.printf(candidateRow, candidate.getId(), candidate.getName());
-            }
-        }
+        view.printElectionCategories(selected.get());
     }
 
     private void createElection() {
-        String name = "";
-        while (name.isEmpty()) {
-            System.out.print("Election name: ");
-            name = scanner.nextLine().trim();
-            if (name.isEmpty()) {
-                System.out.println("The name cannot be empty.");
-            }
-        }
+        String name = input.readRequired("Election name: ", "The name cannot be empty.");
+        LocalDate date = input.readDate("Election date (YYYY-MM-DD): ");
+        List<String> categoryNames = input.readNames(
+                "Categories, separated by commas (e.g. President, Treasurer): ", false);
 
-        // Keep asking until the date is in the right format.
-        LocalDate date = null;
-        while (date == null) {
-            System.out.print("Election date (YYYY-MM-DD): ");
-            String text = scanner.nextLine().trim();
-            try {
-                date = LocalDate.parse(text);
-            } catch (DateTimeParseException e) {
-                System.out.println("Not a valid date: " + text);
-            }
-        }
-
-        List<String> categoryNames = readNames("Categories, separated by commas (e.g. President, Treasurer): ",
-                false);
-
-        // LinkedHashMap keeps the categories in the order they were typed.
-        Map<String, List<String>> candidatesByCategory = new LinkedHashMap<>();
+        List<NewCategory> categories = new ArrayList<>();
         for (String categoryName : categoryNames) {
-            candidatesByCategory.put(categoryName,
-                    readNames("Candidates for " + categoryName + ", separated by commas: ", true));
+            categories.add(askCategoryDetails(categoryName));
         }
 
-        Election election;
         try {
-            election = managementService.createElection(admin, name, date, candidatesByCategory);
+            Election election = managementService.createElection(admin, name, date, categories);
+            view.printCreatedElection(election);
         } catch (InvalidNameException e) {
             System.out.println("Could not create election: " + e.getMessage());
-            return;
         }
-        System.out.println("Created election:");
-        System.out.println("  ID:         " + election.getId());
-        System.out.println("  Name:       " + election.getName());
-        System.out.println("  Date:       " + election.getDate());
-        System.out.println("  Status:     " + election.getStatus());
-        System.out.println("  Created by: " + election.getCreatedBy());
-        System.out.println("  Categories:");
-        printCategories(election, "    ");
     }
 
-    /**
-     * Reads a comma-separated list. Keeps asking until there is at least one name, no name twice,
-     * and, if checkNameRules is true, every name passes NameRules.
-     */
-    private List<String> readNames(String prompt, boolean checkNameRules) {
-        while (true) {
-            System.out.print(prompt);
-            List<String> names = Arrays.stream(scanner.nextLine().split(","))
-                    .map(String::trim)
-                    .filter(n -> !n.isEmpty())
-                    .toList();
+    /** Asks for one category's type first, then seats (multiple only), then candidates (not for yes/no). */
+    private NewCategory askCategoryDetails(String categoryName) {
+        System.out.println();
+        List<String> typeLabels = Arrays.stream(BallotType.values()).map(BallotType::getLabel).toList();
+        BallotType ballotType = BallotType.values()[input.readChoice("Type for " + categoryName + ":", typeLabels)];
 
-            if (names.isEmpty()) {
-                System.out.println("Enter at least one name.");
-                continue;
+        int seats = ballotType == BallotType.SELECT_MULTIPLE
+                ? input.readIntAtLeast("How many winners for " + categoryName + "? (2 or more): ", 2)
+                : 1;
+
+        List<String> candidateNames = ballotType == BallotType.YES_NO
+                ? List.of()
+                : askCandidateNames(categoryName, ballotType, seats);
+
+        return new NewCategory(categoryName, ballotType, seats, candidateNames);
+    }
+
+    /** A select-multiple category needs more candidates than winners, or there would be nothing to choose. */
+    private List<String> askCandidateNames(String categoryName, BallotType ballotType, int seats) {
+        while (true) {
+            List<String> names = input.readNames("Candidates for " + categoryName + ", separated by commas: ", true);
+            if (ballotType != BallotType.SELECT_MULTIPLE || names.size() > seats) {
+                return names;
             }
-            long distinct = names.stream().map(String::toLowerCase).distinct().count();
-            if (distinct != names.size()) {
-                System.out.println("Each name can only be entered once.");
-                continue;
-            }
-            if (checkNameRules) {
-                Optional<String> invalid = names.stream()
-                        .filter(n -> !NameRules.isValidName(n))
-                        .findFirst();
-                if (invalid.isPresent()) {
-                    System.out.println("'" + invalid.get() + "' may only contain " + NameRules.ALLOWED_DESCRIPTION + ".");
-                    continue;
-                }
-            }
-            return names;
+            System.out.println("With " + seats + " winners you need at least " + (seats + 1) + " candidates.");
         }
     }
 
@@ -224,21 +130,14 @@ public class AdminMenu implements Menu {
             System.out.println("No elections have been closed yet.");
             return;
         }
+        view.printElectionTable("Closed elections:", closed);
 
-        System.out.println("Closed elections:");
-        for (Election election : closed) {
-            System.out.println("  " + election.getId() + "  " + election.getName() + "  " + election.getDate());
-        }
-
-        System.out.print("Election ID to view: ");
-        String electionId = scanner.nextLine().trim();
-
+        String electionId = input.readLine("Election ID to view: ");
         Optional<Election> selected = tallyService.findClosedElection(electionId);
         if (selected.isEmpty()) {
             System.out.println("No closed election with ID " + electionId);
             return;
         }
-
         System.out.println("Results for " + selected.get().getName() + ": not built yet.");
     }
 }
