@@ -1,6 +1,7 @@
 package com.election.ui;
 
 import com.election.exception.ElectionException;
+import com.election.model.Deadlines;
 import com.election.model.Election;
 import com.election.model.ElectionStatus;
 import com.election.model.User;
@@ -74,14 +75,38 @@ public class ManageElectionsMenu implements Menu {
             System.out.println("1. Edit election details");
             System.out.println("2. Edit categories");
             System.out.println("3. Edit candidates");
+            System.out.println("4. Open voting");
             System.out.println("0. Back");
 
             String choice = input.readLine("> ");
             switch (choice) {
                 case "1", "2", "3" -> System.out.println("Not built yet.");
+                // Once it is open it is no longer a draft, so this menu ends.
+                case "4" -> managing = !openVoting(election);
                 case "0" -> managing = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
+        }
+    }
+
+    /** Returns true if the election was opened. */
+    private boolean openVoting(Election election) {
+        // After opening, the draft can no longer be edited, so ask first.
+        System.out.println("Opening " + election.getId() + " " + election.getName()
+                + " lets voters vote and freezes its details, categories and candidates.");
+        String confirm = input.readLine("Open it? (yes/no): ");
+        if (!confirm.equalsIgnoreCase("yes") && !confirm.equalsIgnoreCase("y")) {
+            System.out.println(election.getId() + " is still a draft.");
+            return false;
+        }
+
+        try {
+            managementService.openElection(admin, election);
+            System.out.println(election.getId() + " is now " + election.getStatus() + ". Voters can vote in it.");
+            return true;
+        } catch (ElectionException e) {
+            System.out.println("Could not open " + election.getId() + ": " + e.getMessage());
+            return false;
         }
     }
 
@@ -107,6 +132,10 @@ public class ManageElectionsMenu implements Menu {
         // Closing cannot be undone, so ask first.
         System.out.println("Closing " + election.getId() + " " + election.getName()
                 + " ends voting for good and makes its results available.");
+        if (!managementService.deadlinePassed(election)) {
+            System.out.println("Note: its deadline (" + Deadlines.format(election.getDeadline()) + ") has not passed yet. Closing early is"
+                    + " allowed for testing; in a real election it could only be closed after the deadline.");
+        }
         String confirm = input.readLine("Close it? (yes/no): ");
         if (!confirm.equalsIgnoreCase("yes") && !confirm.equalsIgnoreCase("y")) {
             System.out.println(election.getId() + " is still open.");

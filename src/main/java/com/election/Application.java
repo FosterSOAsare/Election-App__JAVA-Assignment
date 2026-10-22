@@ -20,6 +20,7 @@ import com.election.ui.VoterMenu;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.Scanner;
@@ -52,9 +53,11 @@ public class Application {
             return;
         }
 
-        ElectionManagementService managementService = new ElectionManagementService(electionRepository);
+        // One clock for every rule that depends on today's date (the election date is the voting deadline).
+        Clock clock = Clock.systemDefaultZone();
+        ElectionManagementService managementService = new ElectionManagementService(electionRepository, clock);
         TallyService tallyService = new TallyService(electionRepository, new CountingMethodRegistry());
-        VotingService votingService = new VotingService(electionRepository);
+        VotingService votingService = new VotingService(electionRepository, clock);
 
         System.out.println("Welcome to ELECTION APP");
 

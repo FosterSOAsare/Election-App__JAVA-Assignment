@@ -48,6 +48,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `Role` | enum | ADMIN, VOTER (read from users.csv) |
 | model | `Election` | class | id, name, date, status, createdBy, `Map<String, Category>`, ballots; `open()`, `close()`, `ballotsFor(categoryId)` |
 | model | `ElectionStatus` | enum | DRAFT, OPEN, CLOSED |
+| model | `Deadlines` | final class | parses and prints an election deadline (`LocalDateTime`): `YYYY-MM-DD` or `YYYY-MM-DD HH:MM[:SS]`, 00:00:00 when no time is given; shared by the CSV loader and the console |
 | model | `Category` | class | id, electionId, name, ballot type, seats, its candidates |
 | model | `BallotType` | enum | SELECT_ONE, SELECT_MULTIPLE, YES_NO |
 | model | `Candidate` | class | id, name, electionId, categoryId |
@@ -66,7 +67,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | service | `YesNoCount` | implements CountingMethod | passes when yes votes outnumber no votes |
 | service | `CountingMethodRegistry` | class | `EnumMap<BallotType, CountingMethod>`: picks the counting method for a category |
 | service | `BallotFactory` | class | builds the right `Ballot` subclass from a category and the raw choices text; used by the loader and the console |
-| service | `VotingService` | class | `prepareBallot(voter, election, categoryId, choices)` checks one answer without storing it: user can vote, election is OPEN, voter has not voted in this election yet, category exists, choices fit the ballot type (candidate ids are matched ignoring case). `submitBallots` re-checks every prepared ballot and stores them all together, or none. `hasVoted(voter, election)`: a voter submits once per election, so any ballot of theirs in it counts |
+| service | `VotingService` | class | `prepareBallot(voter, election, categoryId, choices)` checks one answer without storing it: user can vote, election is OPEN, its deadline has not passed, voter has not voted in this election yet, category exists, choices fit the ballot type (candidate ids are matched ignoring case). `submitBallots` re-checks every prepared ballot and stores them all together, or none. `hasVoted(voter, election)`: a voter submits once per election, so any ballot of theirs in it counts |
 | service | `TallyService` | class | `closedElections()` and `findClosedElection(id)` for the results menu; counts every category of a CLOSED election; returns `Map<Category, CategoryResult>` in file order |
 | loader | `DataLoader<T>` | interface | `List<T> load(Path)` throws `DataLoadException` |
 | loader | `CsvReader` | class | skips header, splits lines, reports line numbers |
@@ -84,7 +85,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | exception | `DataLoadException` | checked | wraps `IOException`, `DateTimeParseException`, malformed rows, unknown role or ballot type, bad seat count, unknown election or category id |
 | ui | `Menu` | interface | `void run()` |
 | ui | `AdminMenu` | implements Menu | create election, view all elections, manage elections, view results |
-| ui | `ManageElectionsMenu` | implements Menu | shows only the admin's own elections. Manage a draft (election details, categories, candidates): only DRAFT elections can be managed. Close an election: pick one of your OPEN elections, confirm, and `closeElection` checks you are an administrator and its creator before `Election.close()` (OPEN to CLOSED only). Managing drafts is menus only so far |
+| ui | `ManageElectionsMenu` | implements Menu | shows only the admin's own elections. Manage a draft (election details, categories, candidates): only DRAFT elections can be managed. Close an election: pick one of your OPEN elections, confirm, and `closeElection` checks you are an administrator and its creator before `Election.close()` (OPEN to CLOSED only). Manage a draft → Open voting: confirm, and `openElection` checks the same permissions plus the setup rules (at least 1 category, candidates where needed, more candidates than seats), reporting every problem at once, before `Election.open()` (DRAFT to OPEN only). Editing details, categories and candidates is menus only so far |
 | ui | `VoterMenu` | implements Menu | list open elections; vote: pick an open election; a voter who has already voted in it is told so and sees no categories; otherwise answer each category (Enter skips one, an invalid answer is asked again), then review a summary of every category (skipped ones included) and choose Submit, Change an answer (re-asks one category, then shows the summary again) or Cancel; ballots are saved only on Submit; view results of closed elections |
 | ui | `MenuFactory` | class | picks `AdminMenu` or `VoterMenu` from `user.canManageElections()` |
 | ui | `ConsoleInput` | class | wraps the one `Scanner`; every keyboard read (line, required text, date, number, numbered choice, comma-separated names) re-asks until the answer has the right shape |
@@ -99,6 +100,7 @@ Rules `ElectionManagementService` enforces before `openElection` succeeds:
 - the election has at least 1 category
 - every SELECT_ONE and SELECT_MULTIPLE category has at least 1 candidate
 - every SELECT_MULTIPLE category has more candidates than seats
+- the deadline has not passed yet
 
 Console prompts by ballot type:
 
@@ -128,10 +130,10 @@ V009,VOTER
 V010,VOTER
 ```
 
-**elections.csv** (`createdBy` must be an administrator)
+**elections.csv** (`createdBy` must be an administrator; `deadline` is the moment voting ends, written `YYYY-MM-DD` or `YYYY-MM-DD HH:MM[:SS]`, and a missing time means 00:00:00, the start of that day. Votes are accepted before it and refused from it on, and an election cannot be opened once it has passed. `Deadlines` parses and prints it the same way for the file and the console)
 
 ```csv
-id,name,date,status,createdBy
+id,name,deadline,status,createdBy
 E1,Student Council 2026,2026-11-10,OPEN,A1
 E2,Sports Club Captain 2026,2026-12-01,DRAFT,A2
 E3,Student Council 2025,2025-11-12,CLOSED,A1
@@ -323,7 +325,7 @@ E5 is OPEN with 4 ballots so far (C1 2, C2 1, C3 1), and E6 is a DRAFT with cand
 Five decisions to settle before coding; the README asks for 2 to 5, so these cover it.
 
 1. **Roles are subclasses, permissions are methods.** `User` implements the `ManagementPermission` and `VotingPermission` interfaces, and `Administrator` and `Voter` each override `canManageElections()` and `canVote()`, so services ask the user instead of checking its type with `instanceof`. Only the administrator who created an election can edit, open or close it; anyone else gets `UnauthorizedActionException`.
-2. **A one-way lifecycle.** DRAFT to OPEN to CLOSED, never backwards. Setup is frozen once voting starts, so no one can add a candidate mid-vote, and results exist only after closing.
+2. **A one-way lifecycle.** DRAFT to OPEN to CLOSED, never backwards. Setup is frozen once voting starts, so no one can add a candidate mid-vote, and results exist only after closing. The election deadline (a date with an optional time, 00:00:00 if left out) is the moment voting ends: an election cannot be opened after it and votes are refused from it on. Closing before the deadline is allowed on purpose so the app can be tested without waiting, and the admin is told so when they close early; a real election would only allow closing once the deadline has passed.
 3. **The ballot type belongs to the category.** A ballot row only carries voter, category and choices, so a file cannot pair a yes/no answer with the President category. `BallotFactory` reads the type and builds the matching subclass.
 4. **Ties.** If candidates tie for the last winning seat, that seat stays undecided and the result lists the tied candidates. A yes/no vote with equal yes and no is rejected, because a change needs more support than opposition.
 5. **Checked exceptions.** `ElectionException` is checked, so every caller must decide what to do with a business error instead of letting it crash the app.

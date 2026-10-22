@@ -1,4 +1,4 @@
-id,name,date,status,createdBy
+id,name,deadline,status,createdBy
 E1,Student Council 2026,2026-11-10,OPEN,A1
 E2,Sports Club Captain 2026,2026-12-01,DRAFT,A2
 E3,Student Council 2025,2025-11-12,CLOSED,A1

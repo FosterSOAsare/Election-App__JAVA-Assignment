@@ -2,7 +2,7 @@ package com.election.model;
 
 import com.election.exception.ElectionStateException;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,7 +13,8 @@ public class Election {
 
     private final String id;
     private final String name;
-    private final LocalDate date;
+    // The moment voting ends: votes are accepted before it and refused from it on.
+    private final LocalDateTime deadline;
     private final String createdBy;
     private ElectionStatus status;
 
@@ -21,7 +22,7 @@ public class Election {
     private final Map<String, Category> categoriesById = new LinkedHashMap<>();
     private final List<Ballot> ballots = new ArrayList<>();
 
-    public Election(String id, String name, LocalDate date, ElectionStatus status, String createdBy) {
+    public Election(String id, String name, LocalDateTime deadline, ElectionStatus status, String createdBy) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("Election id must not be blank");
         }
@@ -30,7 +31,7 @@ public class Election {
         }
         this.id = id;
         this.name = name;
-        this.date = date;
+        this.deadline = deadline;
         this.status = status;
         this.createdBy = createdBy;
     }
@@ -43,8 +44,8 @@ public class Election {
         return name;
     }
 
-    public LocalDate getDate() {
-        return date;
+    public LocalDateTime getDeadline() {
+        return deadline;
     }
 
     public ElectionStatus getStatus() {
@@ -53,6 +54,15 @@ public class Election {
 
     public String getCreatedBy() {
         return createdBy;
+    }
+
+    /** DRAFT to OPEN. The lifecycle only moves forward, so opening anything that is not a DRAFT is refused. */
+    public void open() throws ElectionStateException {
+        if (status != ElectionStatus.DRAFT) {
+            throw new ElectionStateException(id + " cannot be opened because it is " + status
+                    + "; only DRAFT elections can be opened");
+        }
+        status = ElectionStatus.OPEN;
     }
 
     /** OPEN to CLOSED. The lifecycle only moves forward, so closing anything that is not OPEN is refused. */

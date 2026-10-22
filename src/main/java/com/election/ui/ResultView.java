@@ -2,6 +2,7 @@ package com.election.ui;
 
 import com.election.model.Category;
 import com.election.model.CategoryResult;
+import com.election.model.Deadlines;
 import com.election.model.Election;
 
 import java.util.Map;
@@ -12,7 +13,7 @@ public class ResultView {
     public void printResults(Election election, Map<Category, CategoryResult> results) {
         System.out.println();
         System.out.println("Results for " + election.getId() + " " + election.getName()
-                + " (" + election.getDate() + ")");
+                + " (deadline " + Deadlines.format(election.getDeadline()) + ")");
 
         int idWidth = results.keySet().stream().mapToInt(c -> c.getId().length()).max().orElse(0);
         // The result lines start under the category name, not under its id.

@@ -4,6 +4,7 @@ import com.election.model.Ballot;
 import com.election.model.BallotType;
 import com.election.model.Candidate;
 import com.election.model.Category;
+import com.election.model.Deadlines;
 import com.election.model.Election;
 
 import java.util.List;
@@ -17,12 +18,12 @@ public class ElectionView {
         int idWidth = Math.max("ID".length(), elections.stream().mapToInt(e -> e.getId().length()).max().orElse(0));
         int nameWidth = Math.max("Name".length(),
                 elections.stream().mapToInt(e -> e.getName().length()).max().orElse(0));
-        String row = "  %-" + idWidth + "s  %-" + nameWidth + "s  %-10s  %-6s  %s%n";
+        String row = "  %-" + idWidth + "s  %-" + nameWidth + "s  %-19s  %-6s  %s%n";
 
         System.out.println(title);
-        System.out.printf(row, "ID", "Name", "Date", "Status", "Created by");
+        System.out.printf(row, "ID", "Name", "Deadline", "Status", "Created by");
         for (Election election : elections) {
-            System.out.printf(row, election.getId(), election.getName(), election.getDate(),
+            System.out.printf(row, election.getId(), election.getName(), Deadlines.format(election.getDeadline()),
                     election.getStatus(), election.getCreatedBy());
         }
     }
@@ -88,7 +89,7 @@ public class ElectionView {
         System.out.println("Created election:");
         System.out.println("  ID:         " + election.getId());
         System.out.println("  Name:       " + election.getName());
-        System.out.println("  Date:       " + election.getDate());
+        System.out.println("  Deadline:   " + Deadlines.format(election.getDeadline()));
         System.out.println("  Status:     " + election.getStatus());
         System.out.println("  Created by: " + election.getCreatedBy());
         System.out.println("  Categories:");

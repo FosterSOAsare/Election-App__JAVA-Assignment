@@ -2,13 +2,14 @@ package com.election.ui;
 
 import com.election.exception.InvalidNameException;
 import com.election.model.BallotType;
+import com.election.model.Deadlines;
 import com.election.model.Election;
 import com.election.model.User;
 import com.election.service.ElectionManagementService;
 import com.election.service.ElectionManagementService.NewCategory;
 import com.election.service.TallyService;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -82,7 +83,10 @@ public class AdminMenu implements Menu {
 
     private void createElection() {
         String name = input.readRequired("Election name: ", "The name cannot be empty.");
-        LocalDate date = input.readDate("Election date (YYYY-MM-DD): ");
+        System.out.println("The deadline is the moment voting ends: votes are accepted until then,");
+        System.out.println("and the election cannot be opened once it has passed. Without a time it is 00:00:00,");
+        System.out.println("the very start of that day.");
+        LocalDateTime deadline = input.readDeadline("Voting deadline (" + Deadlines.FORMAT_HINT + "): ");
         List<String> categoryNames = input.readNames(
                 "Categories, separated by commas (e.g. President, Treasurer): ", false);
 
@@ -92,7 +96,7 @@ public class AdminMenu implements Menu {
         }
 
         try {
-            Election election = managementService.createElection(admin, name, date, categories);
+            Election election = managementService.createElection(admin, name, deadline, categories);
             view.printCreatedElection(election);
         } catch (InvalidNameException e) {
             System.out.println("Could not create election: " + e.getMessage());

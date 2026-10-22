@@ -1,8 +1,9 @@
 package com.election.ui;
 
+import com.election.model.Deadlines;
 import com.election.model.NameRules;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
@@ -33,13 +34,14 @@ public class ConsoleInput {
         }
     }
 
-    public LocalDate readDate(String prompt) {
+    /** A date with an optional time; see Deadlines for the accepted formats. No time means 00:00:00. */
+    public LocalDateTime readDeadline(String prompt) {
         while (true) {
             String text = readLine(prompt);
             try {
-                return LocalDate.parse(text);
+                return Deadlines.parse(text);
             } catch (DateTimeParseException e) {
-                System.out.println("Not a valid date: " + text);
+                System.out.println("Not a valid date and time: " + text + ". Use " + Deadlines.FORMAT_HINT + ".");
             }
         }
     }

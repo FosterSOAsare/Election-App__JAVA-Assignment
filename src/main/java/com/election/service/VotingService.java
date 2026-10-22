@@ -8,11 +8,14 @@ import com.election.exception.InvalidBallotException;
 import com.election.model.Ballot;
 import com.election.model.Candidate;
 import com.election.model.Category;
+import com.election.model.Deadlines;
 import com.election.model.Election;
 import com.election.model.ElectionStatus;
 import com.election.model.User;
 import com.election.repository.ElectionRepository;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -25,18 +28,30 @@ import java.util.Optional;
 public class VotingService {
 
     private final ElectionRepository electionRepository;
+    // Where "today" comes from. The app passes the system clock; a test can pass a fixed one.
+    private final Clock clock;
 
-    public VotingService(ElectionRepository electionRepository) {
+    public VotingService(ElectionRepository electionRepository, Clock clock) {
         this.electionRepository = electionRepository;
+        this.clock = clock;
     }
 
+    /** OPEN elections whose deadline has not passed: the ones a voter can still vote in. */
     public List<Election> openElections() {
-        return electionRepository.findByStatus(ElectionStatus.OPEN);
+        return electionRepository.findByStatus(ElectionStatus.OPEN).stream()
+                .filter(e -> !deadlinePassed(e))
+                .toList();
     }
 
     public Optional<Election> findOpenElection(String id) {
         return electionRepository.findById(id)
-                .filter(e -> e.getStatus() == ElectionStatus.OPEN);
+                .filter(e -> e.getStatus() == ElectionStatus.OPEN)
+                .filter(e -> !deadlinePassed(e));
+    }
+
+    /** The deadline is the moment voting ends, so it has passed from that moment on. */
+    public boolean deadlinePassed(Election election) {
+        return !LocalDateTime.now(clock).isBefore(election.getDeadline());
     }
 
     /** A voter submits all their ballots for an election at once, so any ballot means they have voted in it. */
@@ -67,7 +82,7 @@ public class VotingService {
 
     /**
      * Checks one category's answer and builds the ballot, but does not store it. The rules, in order:
-     * the user can vote, the election is OPEN, they have not voted in this election yet,
+     * the user can vote, the election is OPEN, its deadline has not passed, they have not voted in it yet,
      * the category exists, and the choices fit the category's ballot type.
      */
     public Ballot prepareBallot(User voter, Election election, String categoryId, List<String> choices)
@@ -78,6 +93,10 @@ public class VotingService {
         if (election.getStatus() != ElectionStatus.OPEN) {
             throw new ElectionStateException(election.getId() + " is not open for voting (it is "
                     + election.getStatus() + ")");
+        }
+        if (deadlinePassed(election)) {
+            throw new ElectionStateException("Voting in " + election.getName() + " ended at "
+                    + Deadlines.format(election.getDeadline()));
         }
         if (hasVoted(voter, election)) {
             throw new DuplicateVoteException(voter.getId() + " has already voted in " + election.getName());
