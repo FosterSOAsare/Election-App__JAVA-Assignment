@@ -24,6 +24,12 @@ public class ConsoleInput {
         return scanner.nextLine().trim();
     }
 
+    /** Asks a yes/no question; only "yes" or "y" (any case) counts as yes. */
+    public boolean confirm(String question) {
+        String answer = readLine(question + " (yes/no): ");
+        return answer.equalsIgnoreCase("yes") || answer.equalsIgnoreCase("y");
+    }
+
     public String readRequired(String prompt, String emptyMessage) {
         while (true) {
             String text = readLine(prompt);

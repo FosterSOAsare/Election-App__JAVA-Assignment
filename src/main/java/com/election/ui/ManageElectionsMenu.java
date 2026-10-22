@@ -74,16 +74,39 @@ public class ManageElectionsMenu implements Menu {
             System.out.println("--- Manage draft " + election.getId() + " " + election.getName() + " ---");
             System.out.println("1. Edit election details");
             System.out.println("2. Open voting");
+            System.out.println("3. Delete this draft");
             System.out.println("0. Back");
 
             String choice = input.readLine("> ");
             switch (choice) {
                 case "1" -> new EditDraftMenu(admin, election, managementService, input).run();
-                // Once it is open it is no longer a draft, so this menu ends.
+                // Once it is open, or deleted, it is no longer a draft, so this menu ends.
                 case "2" -> managing = !openVoting(election);
+                case "3" -> managing = !deleteDraft(election);
                 case "0" -> managing = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
+        }
+    }
+
+    /** Returns true if the draft was deleted. */
+    private boolean deleteDraft(Election election) {
+        int categories = election.getCategories().size();
+        int candidates = election.getCategories().stream().mapToInt(c -> c.getCandidates().size()).sum();
+        String question = "Delete " + election.getId() + " " + election.getName() + " with its " + categories
+                + (categories == 1 ? " category" : " categories") + " and " + candidates
+                + (candidates == 1 ? " candidate" : " candidates") + "? This cannot be undone.";
+        if (!input.confirm(question)) {
+            System.out.println(election.getId() + " was not deleted.");
+            return false;
+        }
+        try {
+            managementService.deleteElection(admin, election);
+            System.out.println("Deleted " + election.getId() + " " + election.getName() + ".");
+            return true;
+        } catch (ElectionException e) {
+            System.out.println("Could not delete " + election.getId() + ": " + e.getMessage() + ".");
+            return false;
         }
     }
 

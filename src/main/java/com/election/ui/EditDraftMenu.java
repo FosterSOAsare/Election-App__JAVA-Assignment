@@ -121,15 +121,41 @@ public class EditDraftMenu implements Menu {
             System.out.println("--- Edit category " + category.getId() + " " + category.getName() + " ---");
             System.out.println("1. Edit category details");
             System.out.println("2. Edit candidates");
+            System.out.println("3. Remove this category");
             System.out.println("0. Back");
 
             String choice = input.readLine("> ");
             switch (choice) {
                 case "1" -> editCategoryDetails(category);
                 case "2" -> editCandidates(category);
+                // Once it is removed there is nothing left to edit, so this menu ends.
+                case "3" -> editing = !removeCategory(category);
                 case "0" -> editing = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
+        }
+    }
+
+    /** Returns true if the category was removed. */
+    private boolean removeCategory(Category category) {
+        String question = "Remove " + category.getId() + " \"" + category.getName() + "\"";
+        List<Candidate> candidates = category.getCandidates();
+        if (!candidates.isEmpty()) {
+            question += " and its " + candidates.size() + (candidates.size() == 1 ? " candidate" : " candidates")
+                    + " (" + candidates.stream().map(c -> c.getId() + " " + c.getName())
+                    .collect(Collectors.joining(", ")) + ")";
+        }
+        if (!input.confirm(question + "?")) {
+            System.out.println(category.getId() + " was not removed.");
+            return false;
+        }
+        try {
+            managementService.removeCategory(admin, election, category);
+            System.out.println("Removed " + category.getId() + " \"" + category.getName() + "\".");
+            return true;
+        } catch (ElectionException e) {
+            System.out.println("Could not remove " + category.getId() + ": " + e.getMessage() + ".");
+            return false;
         }
     }
 
@@ -229,7 +255,7 @@ public class EditDraftMenu implements Menu {
         }
     }
 
-    /** Lists the candidates, lets the admin pick one by id and give it a new name, until Enter is pressed. */
+    /** Lists the candidates, lets the admin pick one by id and rename or remove it, until Enter is pressed. */
     private void editCandidates(Category category) {
         if (category.getBallotType() == BallotType.YES_NO) {
             System.out.println(category.getName() + " is a Yes / No question, so it has no candidates.");
@@ -248,7 +274,7 @@ public class EditDraftMenu implements Menu {
                 System.out.printf("  %-" + idWidth + "s  %s%n", candidate.getId(), candidate.getName());
             }
 
-            String candidateId = input.readLine("Candidate ID to rename (Enter to go back): ");
+            String candidateId = input.readLine("Candidate ID to edit (Enter to go back): ");
             if (candidateId.isEmpty()) {
                 return;
             }
@@ -257,7 +283,36 @@ public class EditDraftMenu implements Menu {
                 System.out.println("There is no candidate " + candidateId + " in " + category.getName());
                 continue;
             }
-            renameCandidate(category, selected.get());
+            editCandidate(category, selected.get());
+        }
+    }
+
+    private void editCandidate(Category category, Candidate candidate) {
+        System.out.println();
+        System.out.println("--- Candidate " + candidate.getId() + " " + candidate.getName() + " ---");
+        System.out.println("1. Rename");
+        System.out.println("2. Remove");
+        System.out.println("0. Back");
+
+        String choice = input.readLine("> ");
+        switch (choice) {
+            case "1" -> renameCandidate(category, candidate);
+            case "2" -> removeCandidate(category, candidate);
+            case "0" -> { }
+            default -> System.out.println("Unknown option: " + choice);
+        }
+    }
+
+    private void removeCandidate(Category category, Candidate candidate) {
+        if (!input.confirm("Remove " + candidate.getId() + " " + candidate.getName() + " from " + category.getName() + "?")) {
+            System.out.println(candidate.getId() + " was not removed.");
+            return;
+        }
+        try {
+            managementService.removeCandidate(admin, election, category, candidate);
+            System.out.println("Removed " + candidate.getId() + " " + candidate.getName() + ".");
+        } catch (ElectionException e) {
+            System.out.println("Could not remove " + candidate.getId() + ": " + e.getMessage() + ".");
         }
     }
 

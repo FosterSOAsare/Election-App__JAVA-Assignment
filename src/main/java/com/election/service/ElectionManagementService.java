@@ -116,6 +116,31 @@ public class ElectionManagementService {
         category.renameCandidate(candidate, newName);
     }
 
+    /** Only the creator may remove a candidate, and only while the election is still a DRAFT. */
+    public void removeCandidate(User admin, Election election, Category category, Candidate candidate)
+            throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        election.removeCandidate(category, candidate);
+    }
+
+    /** Only the creator may remove a category (with its candidates), and only while the election is still a DRAFT. */
+    public void removeCategory(User admin, Election election, Category category) throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        election.removeCategory(category);
+    }
+
+    /**
+     * Deletes a whole draft. Only drafts can be deleted: once an election is open it may have ballots,
+     * and those must never disappear.
+     */
+    public void deleteElection(User admin, Election election) throws ElectionException {
+        requireCreator(admin, election, "delete");
+        requireDraft(election);
+        electionRepository.delete(election.getId());
+    }
+
     private void requireDraft(Election election) throws ElectionStateException {
         if (election.getStatus() != ElectionStatus.DRAFT) {
             throw new ElectionStateException(election.getId() + " is " + election.getStatus()

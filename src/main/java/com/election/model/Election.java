@@ -87,6 +87,24 @@ public class Election {
         category.changeType(newType, newSeats);
     }
 
+    /** Removes one of this draft's categories together with its candidates. Other ids are not renumbered. */
+    public void removeCategory(Category category) throws ElectionStateException {
+        requireDraft("edited");
+        if (categoriesById.get(category.getId()) != category) {
+            throw new IllegalArgumentException("Category " + category.getId() + " is not in " + id);
+        }
+        categoriesById.remove(category.getId());
+    }
+
+    /** Removes one candidate from one of this draft's categories. Other ids are not renumbered. */
+    public void removeCandidate(Category category, Candidate candidate) throws ElectionStateException {
+        requireDraft("edited");
+        if (categoriesById.get(category.getId()) != category) {
+            throw new IllegalArgumentException("Category " + category.getId() + " is not in " + id);
+        }
+        category.removeCandidate(candidate);
+    }
+
     private void requireDraft(String action) throws ElectionStateException {
         if (status != ElectionStatus.DRAFT) {
             throw new ElectionStateException(id + " is " + status + ", so it cannot be " + action

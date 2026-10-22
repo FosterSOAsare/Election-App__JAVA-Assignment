@@ -129,4 +129,12 @@ public class Category {
         }
         candidate.rename(newName);
     }
+
+    /** Package-private on purpose: only Election calls this, after checking the election is still a DRAFT. */
+    void removeCandidate(Candidate candidate) {
+        if (candidatesById.get(candidate.getId()) != candidate) {
+            throw new IllegalArgumentException("Candidate " + candidate.getId() + " is not in " + name);
+        }
+        candidatesById.remove(candidate.getId());
+    }
 }
