@@ -10,6 +10,7 @@ import com.election.model.Category;
 import com.election.model.Deadlines;
 import com.election.model.Election;
 import com.election.model.ElectionStatus;
+import com.election.model.NameRules;
 import com.election.model.User;
 import com.election.repository.ElectionRepository;
 
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /** Administrator actions on elections. */
 public class ElectionManagementService {
@@ -151,9 +153,71 @@ public class ElectionManagementService {
             throws InvalidNameException {
         Election election = new Election(electionRepository.nextId(), name, deadline, ElectionStatus.DRAFT,
                 admin.getId());
+        addNewCategories(election, categories);
+        electionRepository.add(election);
+        return election;
+    }
 
-        int categoryNumber = 0;
-        int candidateNumber = 0;
+    /** Adds categories, with their candidates, to one of the admin's drafts. Ids continue after the existing ones. */
+    public void addCategories(User admin, Election election, List<NewCategory> categories) throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        addNewCategories(election, categories);
+    }
+
+    /**
+     * Changes a draft's name and/or deadline; null means "keep the current one".
+     * The new deadline must not have passed already, or the draft could never be opened.
+     * Everything is checked before anything changes, so a refused edit leaves the election as it was.
+     */
+    public void updateElectionDetails(User admin, Election election, String newName, LocalDateTime newDeadline)
+            throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        if (newDeadline != null && !LocalDateTime.now(clock).isBefore(newDeadline)) {
+            throw new ElectionStateException("The new deadline " + Deadlines.format(newDeadline)
+                    + " has already passed");
+        }
+        // rename checks the name before changing anything; after it, changeDeadline cannot fail on a draft.
+        if (newName != null) {
+            election.rename(newName);
+        }
+        if (newDeadline != null) {
+            election.changeDeadline(newDeadline);
+        }
+    }
+
+    /** Only the creator may rename a category, and only while the election is still a DRAFT. */
+    public void renameCategory(User admin, Election election, Category category, String newName)
+            throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        election.renameCategory(category, newName);
+    }
+
+    /**
+     * Gives each new category the next free CATn and each new candidate the next free Cn in this election,
+     * so adding to an election that already has CAT1-CAT2 and C1-C7 starts at CAT3 and C8.
+     * Every name is checked first, so a problem leaves the election exactly as it was.
+     */
+    private void addNewCategories(Election election, List<NewCategory> categories) throws InvalidNameException {
+        for (NewCategory newCategory : categories) {
+            boolean nameTaken = election.getCategories().stream()
+                    .anyMatch(c -> c.getName().equalsIgnoreCase(newCategory.name()));
+            if (nameTaken) {
+                throw new InvalidNameException("Category " + newCategory.name() + " already exists in "
+                        + election.getName());
+            }
+            for (String candidateName : newCategory.candidateNames()) {
+                NameRules.requireValidName(candidateName, "Candidate name");
+            }
+        }
+
+        int categoryNumber = highestNumber("CAT", election.getCategories().stream().map(Category::getId));
+        int candidateNumber = highestNumber("C", election.getCategories().stream()
+                .flatMap(c -> c.getCandidates().stream())
+                .map(Candidate::getId));
+
         for (NewCategory newCategory : categories) {
             categoryNumber++;
             Category category = new Category("CAT" + categoryNumber, election.getId(), newCategory.name(),
@@ -166,8 +230,13 @@ public class ElectionManagementService {
                         election.getId(), category.getId()));
             }
         }
+    }
 
-        electionRepository.add(election);
-        return election;
+    /** The highest number among ids like CAT3 or C7 with this prefix, or 0 if there are none. */
+    private static int highestNumber(String prefix, Stream<String> ids) {
+        return ids.filter(id -> id.matches(prefix + "\\d+"))
+                .mapToInt(id -> Integer.parseInt(id.substring(prefix.length())))
+                .max()
+                .orElse(0);
     }
 }

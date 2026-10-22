@@ -46,6 +46,21 @@ public class ConsoleInput {
         }
     }
 
+    /** Like readDeadline, but pressing Enter returns empty, meaning "keep the current deadline". */
+    public Optional<LocalDateTime> readOptionalDeadline(String prompt) {
+        while (true) {
+            String text = readLine(prompt);
+            if (text.isEmpty()) {
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(Deadlines.parse(text));
+            } catch (DateTimeParseException e) {
+                System.out.println("Not a valid date and time: " + text + ". Use " + Deadlines.FORMAT_HINT + ".");
+            }
+        }
+    }
+
     public int readIntAtLeast(String prompt, int minimum) {
         while (true) {
             String text = readLine(prompt);

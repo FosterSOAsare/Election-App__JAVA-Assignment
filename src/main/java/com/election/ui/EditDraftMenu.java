@@ -4,11 +4,14 @@ import com.election.exception.ElectionException;
 import com.election.model.BallotType;
 import com.election.model.Candidate;
 import com.election.model.Category;
+import com.election.model.Deadlines;
 import com.election.model.Election;
 import com.election.model.NameRules;
 import com.election.model.User;
 import com.election.service.ElectionManagementService;
+import com.election.service.ElectionManagementService.NewCategory;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +25,7 @@ public class EditDraftMenu implements Menu {
     private final Election election;
     private final ElectionManagementService managementService;
     private final ConsoleInput input;
+    private final ElectionView view = new ElectionView();
 
     public EditDraftMenu(User admin, Election election, ElectionManagementService managementService,
                          ConsoleInput input) {
@@ -44,11 +48,54 @@ public class EditDraftMenu implements Menu {
 
             String choice = input.readLine("> ");
             switch (choice) {
-                case "1", "3" -> System.out.println("Not built yet.");
+                case "1" -> editElectionDetails();
                 case "2" -> pickCategoryToEdit();
+                case "3" -> addCategories();
                 case "0" -> editing = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
+        }
+    }
+
+    /** Name and deadline; Enter keeps either one. A refused change is asked again, and nothing is half-saved. */
+    private void editElectionDetails() {
+        while (true) {
+            System.out.println();
+            System.out.println("Election details of " + election.getId() + ":");
+            System.out.println("  Name:      " + election.getName());
+            System.out.println("  Deadline:  " + Deadlines.format(election.getDeadline()));
+
+            String newName = input.readLine("New name (Enter to keep it): ");
+            Optional<LocalDateTime> newDeadline = input.readOptionalDeadline(
+                    "New deadline (" + Deadlines.FORMAT_HINT + "; Enter to keep it): ");
+
+            if (newName.isEmpty() && newDeadline.isEmpty()) {
+                System.out.println("Nothing changed.");
+                return;
+            }
+            try {
+                managementService.updateElectionDetails(admin, election,
+                        newName.isEmpty() ? null : newName, newDeadline.orElse(null));
+                System.out.println("Saved: " + election.getId() + " " + election.getName()
+                        + ", deadline " + Deadlines.format(election.getDeadline()) + ".");
+                return;
+            } catch (ElectionException e) {
+                System.out.println("Not saved: " + e.getMessage() + ". Try again, or press Enter twice to keep both.");
+            }
+        }
+    }
+
+    /** The same questions as Create Election; the new categories and their candidates are shown afterwards. */
+    private void addCategories() {
+        List<String> existingNames = election.getCategories().stream().map(Category::getName).toList();
+        List<NewCategory> categories = new CategoryForm(input).askCategories(existingNames);
+        try {
+            managementService.addCategories(admin, election, categories);
+            System.out.println("Added " + categories.size() + (categories.size() == 1 ? " category" : " categories")
+                    + " to " + election.getId() + ".");
+            view.printElectionCategories(election);
+        } catch (ElectionException e) {
+            System.out.println("Nothing was added: " + e.getMessage() + ".");
         }
     }
 
@@ -76,10 +123,28 @@ public class EditDraftMenu implements Menu {
 
             String choice = input.readLine("> ");
             switch (choice) {
-                case "1" -> System.out.println("Not built yet.");
+                case "1" -> renameCategory(category);
                 case "2" -> editCandidates(category);
                 case "0" -> editing = false;
                 default -> System.out.println("Unknown option: " + choice);
+            }
+        }
+    }
+
+    /** Category details: for now its name. Enter keeps the current one; an invalid name is asked again. */
+    private void renameCategory(Category category) {
+        while (true) {
+            String newName = input.readLine("New name for " + category.getName() + " (Enter to keep it): ");
+            if (newName.isEmpty()) {
+                return;
+            }
+            String oldName = category.getName();
+            try {
+                managementService.renameCategory(admin, election, category, newName);
+                System.out.println(category.getId() + " " + oldName + " is now " + category.getName() + ".");
+                return;
+            } catch (ElectionException e) {
+                System.out.println(e.getMessage() + ".");
             }
         }
     }

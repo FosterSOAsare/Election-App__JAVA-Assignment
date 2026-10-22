@@ -1,7 +1,6 @@
 package com.election.ui;
 
 import com.election.exception.InvalidNameException;
-import com.election.model.BallotType;
 import com.election.model.Deadlines;
 import com.election.model.Election;
 import com.election.model.User;
@@ -10,8 +9,6 @@ import com.election.service.ElectionManagementService.NewCategory;
 import com.election.service.TallyService;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -87,47 +84,13 @@ public class AdminMenu implements Menu {
         System.out.println("and the election cannot be opened once it has passed. Without a time it is 00:00:00,");
         System.out.println("the very start of that day.");
         LocalDateTime deadline = input.readDeadline("Voting deadline (" + Deadlines.FORMAT_HINT + "): ");
-        List<String> categoryNames = input.readNames(
-                "Categories, separated by commas (e.g. President, Treasurer): ", false);
-
-        List<NewCategory> categories = new ArrayList<>();
-        for (String categoryName : categoryNames) {
-            categories.add(askCategoryDetails(categoryName));
-        }
+        List<NewCategory> categories = new CategoryForm(input).askCategories();
 
         try {
             Election election = managementService.createElection(admin, name, deadline, categories);
             view.printCreatedElection(election);
         } catch (InvalidNameException e) {
             System.out.println("Could not create election: " + e.getMessage());
-        }
-    }
-
-    /** Asks for one category's type first, then seats (multiple only), then candidates (not for yes/no). */
-    private NewCategory askCategoryDetails(String categoryName) {
-        System.out.println();
-        List<String> typeLabels = Arrays.stream(BallotType.values()).map(BallotType::getLabel).toList();
-        BallotType ballotType = BallotType.values()[input.readChoice("Type for " + categoryName + ":", typeLabels)];
-
-        int seats = ballotType == BallotType.SELECT_MULTIPLE
-                ? input.readIntAtLeast("How many winners for " + categoryName + "? (2 or more): ", 2)
-                : 1;
-
-        List<String> candidateNames = ballotType == BallotType.YES_NO
-                ? List.of()
-                : askCandidateNames(categoryName, ballotType, seats);
-
-        return new NewCategory(categoryName, ballotType, seats, candidateNames);
-    }
-
-    /** A select-multiple category needs more candidates than winners, or there would be nothing to choose. */
-    private List<String> askCandidateNames(String categoryName, BallotType ballotType, int seats) {
-        while (true) {
-            List<String> names = input.readNames("Candidates for " + categoryName + ", separated by commas: ", true);
-            if (ballotType != BallotType.SELECT_MULTIPLE || names.size() > seats) {
-                return names;
-            }
-            System.out.println("With " + seats + " winners you need at least " + (seats + 1) + " candidates.");
         }
     }
 }

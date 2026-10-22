@@ -1,6 +1,8 @@
 package com.election.model;
 
+import com.election.exception.ElectionException;
 import com.election.exception.ElectionStateException;
+import com.election.exception.InvalidNameException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -12,9 +14,10 @@ import java.util.Optional;
 public class Election {
 
     private final String id;
-    private final String name;
+    // Not final: a DRAFT election's name and deadline can still be changed (see rename and changeDeadline).
+    private String name;
     // The moment voting ends: votes are accepted before it and refused from it on.
-    private final LocalDateTime deadline;
+    private LocalDateTime deadline;
     private final String createdBy;
     private ElectionStatus status;
 
@@ -56,6 +59,34 @@ public class Election {
         return createdBy;
     }
 
+    /** Only a DRAFT can be renamed: once voting starts, the setup is frozen. */
+    public void rename(String newName) throws ElectionException {
+        requireDraft("renamed");
+        if (newName == null || newName.isBlank()) {
+            throw new InvalidNameException("An election name cannot be empty");
+        }
+        if (newName.contains(",")) {
+            throw new InvalidNameException("Election name '" + newName + "' cannot contain a comma");
+        }
+        this.name = newName;
+    }
+
+    /** Only a DRAFT's deadline can be changed. Whether the new deadline is still in the future is the service's check. */
+    public void changeDeadline(LocalDateTime newDeadline) throws ElectionStateException {
+        requireDraft("given a new deadline");
+        if (newDeadline == null) {
+            throw new IllegalArgumentException("A deadline is required");
+        }
+        this.deadline = newDeadline;
+    }
+
+    private void requireDraft(String action) throws ElectionStateException {
+        if (status != ElectionStatus.DRAFT) {
+            throw new ElectionStateException(id + " is " + status + ", so it cannot be " + action
+                    + "; only DRAFT elections can be edited");
+        }
+    }
+
     /** DRAFT to OPEN. The lifecycle only moves forward, so opening anything that is not a DRAFT is refused. */
     public void open() throws ElectionStateException {
         if (status != ElectionStatus.DRAFT) {
@@ -91,6 +122,29 @@ public class Election {
             throw new IllegalArgumentException("Ballot from " + ballot.getVoterId() + " belongs to another election");
         }
         ballots.add(ballot);
+    }
+
+    /**
+     * Renames one of this election's categories. The name must not be empty, must not contain a comma
+     * (category names are typed as a comma-separated list), and must not belong to another category here.
+     */
+    public void renameCategory(Category category, String newName) throws InvalidNameException {
+        if (categoriesById.get(category.getId()) != category) {
+            throw new IllegalArgumentException("Category " + category.getId() + " is not in " + id);
+        }
+        if (newName == null || newName.isBlank()) {
+            throw new InvalidNameException("A category name cannot be empty");
+        }
+        if (newName.contains(",")) {
+            throw new InvalidNameException("Category name '" + newName + "' cannot contain a comma");
+        }
+        boolean nameTaken = categoriesById.values().stream()
+                .filter(c -> c != category)
+                .anyMatch(c -> c.getName().equalsIgnoreCase(newName));
+        if (nameTaken) {
+            throw new InvalidNameException("Category " + newName + " already exists in " + name);
+        }
+        category.rename(newName);
     }
 
     public void addCategory(Category category) {

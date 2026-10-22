@@ -11,7 +11,7 @@ public class Category {
 
     private final String id;
     private final String electionId;
-    private final String name;
+    private String name;
     private final BallotType ballotType;
     // Number of winners: always 1 for SELECT_ONE and YES_NO, at least 2 for SELECT_MULTIPLE.
     private final int seats;
@@ -52,6 +52,14 @@ public class Category {
 
     public String getName() {
         return name;
+    }
+
+    /**
+     * Package-private on purpose: only Election calls this, after checking that no other category
+     * in the election already has the new name.
+     */
+    void rename(String newName) {
+        this.name = newName;
     }
 
     public BallotType getBallotType() {
