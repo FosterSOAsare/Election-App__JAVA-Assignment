@@ -73,16 +73,14 @@ public class ManageElectionsMenu implements Menu {
             System.out.println();
             System.out.println("--- Manage draft " + election.getId() + " " + election.getName() + " ---");
             System.out.println("1. Edit election details");
-            System.out.println("2. Edit categories");
-            System.out.println("3. Edit candidates");
-            System.out.println("4. Open voting");
+            System.out.println("2. Open voting");
             System.out.println("0. Back");
 
             String choice = input.readLine("> ");
             switch (choice) {
-                case "1", "2", "3" -> System.out.println("Not built yet.");
+                case "1" -> new EditDraftMenu(admin, election, managementService, input).run();
                 // Once it is open it is no longer a draft, so this menu ends.
-                case "4" -> managing = !openVoting(election);
+                case "2" -> managing = !openVoting(election);
                 case "0" -> managing = false;
                 default -> System.out.println("Unknown option: " + choice);
             }

@@ -106,6 +106,21 @@ public class ElectionManagementService {
         election.close();
     }
 
+    /** Only the creator may rename a candidate, and only while the election is still a DRAFT. */
+    public void renameCandidate(User admin, Election election, Category category, Candidate candidate,
+                                String newName) throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        category.renameCandidate(candidate, newName);
+    }
+
+    private void requireDraft(Election election) throws ElectionStateException {
+        if (election.getStatus() != ElectionStatus.DRAFT) {
+            throw new ElectionStateException(election.getId() + " is " + election.getStatus()
+                    + "; only DRAFT elections can be edited");
+        }
+    }
+
     private void requireCreator(User admin, Election election, String action) throws UnauthorizedActionException {
         if (!admin.canManageElections()) {
             throw new UnauthorizedActionException(admin.getId() + " is not an administrator, so cannot "

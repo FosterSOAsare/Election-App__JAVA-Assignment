@@ -1,8 +1,11 @@
 package com.election.model;
 
+import com.election.exception.InvalidNameException;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class Category {
 
@@ -79,5 +82,25 @@ public class Category {
             throw new IllegalArgumentException("Candidate " + candidate.getName() + " is already standing for " + name);
         }
         candidatesById.put(candidate.getId(), candidate);
+    }
+
+    public Optional<Candidate> findCandidate(String candidateId) {
+        return candidatesById.values().stream()
+                .filter(c -> c.getId().equalsIgnoreCase(candidateId))
+                .findFirst();
+    }
+
+    /** Renames one of this category's candidates; the new name must be valid and not used by another candidate here. */
+    public void renameCandidate(Candidate candidate, String newName) throws InvalidNameException {
+        if (candidatesById.get(candidate.getId()) != candidate) {
+            throw new IllegalArgumentException("Candidate " + candidate.getId() + " is not in " + name);
+        }
+        boolean nameTaken = candidatesById.values().stream()
+                .filter(c -> c != candidate)
+                .anyMatch(c -> c.getName().equalsIgnoreCase(newName));
+        if (nameTaken) {
+            throw new InvalidNameException("Candidate " + newName + " is already standing for " + name);
+        }
+        candidate.rename(newName);
     }
 }

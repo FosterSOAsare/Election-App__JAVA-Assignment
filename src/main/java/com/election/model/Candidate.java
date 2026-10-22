@@ -5,7 +5,8 @@ import com.election.exception.InvalidNameException;
 public class Candidate {
 
     private final String id;
-    private final String name;
+    // Not final: a draft election's candidates can be renamed, through Category.renameCandidate.
+    private String name;
     private final String electionId;
     private final String categoryId;
 
@@ -26,6 +27,15 @@ public class Candidate {
 
     public String getName() {
         return name;
+    }
+
+    /**
+     * Package-private on purpose: only Category calls this, after checking that no other candidate
+     * in the category already has the new name.
+     */
+    void rename(String newName) throws InvalidNameException {
+        NameRules.requireValidName(newName, "Candidate name");
+        this.name = newName;
     }
 
     public String getElectionId() {
