@@ -12,9 +12,10 @@ public class Category {
     private final String id;
     private final String electionId;
     private String name;
-    private final BallotType ballotType;
+    // Not final: a draft's category can change type, through Election.changeCategoryType.
+    private BallotType ballotType;
     // Number of winners: always 1 for SELECT_ONE and YES_NO, at least 2 for SELECT_MULTIPLE.
-    private final int seats;
+    private int seats;
 
     // LinkedHashMap keeps the candidates in the order they were added.
     private final Map<String, Candidate> candidatesById = new LinkedHashMap<>();
@@ -26,6 +27,15 @@ public class Category {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Category name must not be blank");
         }
+        checkTypeAndSeats(name, ballotType, seats);
+        this.id = id;
+        this.electionId = electionId;
+        this.name = name;
+        this.ballotType = ballotType;
+        this.seats = seats;
+    }
+
+    private static void checkTypeAndSeats(String name, BallotType ballotType, int seats) {
         if (ballotType == null) {
             throw new IllegalArgumentException("Category " + name + " needs a ballot type");
         }
@@ -35,11 +45,19 @@ public class Category {
         if (ballotType != BallotType.SELECT_MULTIPLE && seats != 1) {
             throw new IllegalArgumentException("Category " + name + " is " + ballotType + ", so it has exactly 1 seat");
         }
-        this.id = id;
-        this.electionId = electionId;
-        this.name = name;
-        this.ballotType = ballotType;
-        this.seats = seats;
+    }
+
+    /**
+     * Package-private on purpose: only Election calls this, after checking the election is still a DRAFT.
+     * A Yes / No question has no candidates, so changing to YES_NO removes them all.
+     */
+    void changeType(BallotType newType, int newSeats) {
+        checkTypeAndSeats(name, newType, newSeats);
+        if (newType == BallotType.YES_NO) {
+            candidatesById.clear();
+        }
+        this.ballotType = newType;
+        this.seats = newSeats;
     }
 
     public String getId() {

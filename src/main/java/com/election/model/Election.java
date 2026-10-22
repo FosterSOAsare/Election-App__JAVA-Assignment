@@ -14,9 +14,7 @@ import java.util.Optional;
 public class Election {
 
     private final String id;
-    // Not final: a DRAFT election's name and deadline can still be changed (see rename and changeDeadline).
     private String name;
-    // The moment voting ends: votes are accepted before it and refused from it on.
     private LocalDateTime deadline;
     private final String createdBy;
     private ElectionStatus status;
@@ -78,6 +76,15 @@ public class Election {
             throw new IllegalArgumentException("A deadline is required");
         }
         this.deadline = newDeadline;
+    }
+
+    /** Changes one of this draft's categories to another ballot type; see Category.changeType. */
+    public void changeCategoryType(Category category, BallotType newType, int newSeats) throws ElectionStateException {
+        requireDraft("edited");
+        if (categoriesById.get(category.getId()) != category) {
+            throw new IllegalArgumentException("Category " + category.getId() + " is not in " + id);
+        }
+        category.changeType(newType, newSeats);
     }
 
     private void requireDraft(String action) throws ElectionStateException {

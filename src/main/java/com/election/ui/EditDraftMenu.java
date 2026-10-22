@@ -12,8 +12,10 @@ import com.election.service.ElectionManagementService;
 import com.election.service.ElectionManagementService.NewCategory;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Editing one draft election: its own details, its categories (and each category's candidates),
@@ -123,7 +125,7 @@ public class EditDraftMenu implements Menu {
 
             String choice = input.readLine("> ");
             switch (choice) {
-                case "1" -> renameCategory(category);
+                case "1" -> editCategoryDetails(category);
                 case "2" -> editCandidates(category);
                 case "0" -> editing = false;
                 default -> System.out.println("Unknown option: " + choice);
@@ -131,7 +133,85 @@ public class EditDraftMenu implements Menu {
         }
     }
 
-    /** Category details: for now its name. Enter keeps the current one; an invalid name is asked again. */
+    /** Category details: its name, then optionally its type. */
+    private void editCategoryDetails(Category category) {
+        System.out.println();
+        System.out.println("Category details of " + category.getId() + ":");
+        System.out.println("  Name:  " + category.getName());
+        System.out.println("  Type:  " + ElectionView.typeDescription(category));
+        renameCategory(category);
+
+        String answer = input.readLine("Change the type? (yes/no): ");
+        if (answer.equalsIgnoreCase("yes") || answer.equalsIgnoreCase("y")) {
+            changeCategoryType(category);
+        }
+    }
+
+    /**
+     * Asks for the new type, then whatever that type needs: seats for Select multiple, candidates when there
+     * would not be enough, or confirmation before a Yes / No question drops the candidates it has.
+     */
+    private void changeCategoryType(Category category) {
+        List<String> typeLabels = Arrays.stream(BallotType.values()).map(BallotType::getLabel).toList();
+        BallotType newType = BallotType.values()[input.readChoice("New type for " + category.getName() + ":",
+                typeLabels)];
+        int newSeats = newType == BallotType.SELECT_MULTIPLE
+                ? input.readIntAtLeast("How many winners for " + category.getName() + "? (2 or more): ", 2)
+                : 1;
+
+        if (newType == category.getBallotType() && newSeats == category.getSeats()) {
+            System.out.println("That is already its type; nothing changed.");
+            return;
+        }
+
+        List<String> newCandidateNames = List.of();
+        if (newType == BallotType.YES_NO) {
+            List<Candidate> candidates = category.getCandidates();
+            if (!candidates.isEmpty()) {
+                String names = candidates.stream().map(c -> c.getId() + " " + c.getName())
+                        .collect(Collectors.joining(", "));
+                System.out.println("A Yes / No question has no candidates, so this removes " + names + ".");
+                String confirm = input.readLine("Continue? (yes/no): ");
+                if (!confirm.equalsIgnoreCase("yes") && !confirm.equalsIgnoreCase("y")) {
+                    System.out.println("The type was not changed.");
+                    return;
+                }
+            }
+        } else {
+            // Select one needs at least 1 candidate, Select multiple more candidates than seats.
+            int needed = (newType == BallotType.SELECT_MULTIPLE ? newSeats + 1 : 1) - category.getCandidates().size();
+            if (needed > 0) {
+                newCandidateNames = askNewCandidateNames(category, needed);
+            }
+        }
+
+        try {
+            managementService.changeCategoryType(admin, election, category, newType, newSeats, newCandidateNames);
+            System.out.println(category.getId() + " " + category.getName() + " is now "
+                    + ElectionView.typeDescription(category) + ".");
+        } catch (ElectionException e) {
+            System.out.println("The type was not changed: " + e.getMessage() + ".");
+        }
+    }
+
+    /** At least `needed` new names, none already standing in this category. */
+    private List<String> askNewCandidateNames(Category category, int needed) {
+        while (true) {
+            System.out.println("It needs at least " + needed + " more " + (needed == 1 ? "candidate" : "candidates") + ".");
+            List<String> names = input.readNames("Candidates for " + category.getName() + ", separated by commas: ",
+                    true);
+            Optional<String> taken = names.stream()
+                    .filter(n -> category.getCandidates().stream().anyMatch(c -> c.getName().equalsIgnoreCase(n)))
+                    .findFirst();
+            if (taken.isPresent()) {
+                System.out.println(taken.get() + " is already standing for " + category.getName() + ".");
+            } else if (names.size() >= needed) {
+                return names;
+            }
+        }
+    }
+
+    /** Enter keeps the current name; an invalid name is asked again. */
     private void renameCategory(Category category) {
         while (true) {
             String newName = input.readLine("New name for " + category.getName() + " (Enter to keep it): ");

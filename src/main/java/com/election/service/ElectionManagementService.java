@@ -187,6 +187,40 @@ public class ElectionManagementService {
         }
     }
 
+    /**
+     * Gives a draft's category another ballot type. Changing to Yes / No removes its candidates;
+     * newCandidateNames are added after the change (needed when a Yes / No becomes Select one or multiple)
+     * and get the next free Cn ids. Names are checked before anything changes.
+     */
+    public void changeCategoryType(User admin, Election election, Category category, BallotType newType,
+                                   int newSeats, List<String> newCandidateNames) throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        if (newType == BallotType.YES_NO && !newCandidateNames.isEmpty()) {
+            throw new IllegalArgumentException("A Yes / No question cannot have candidates");
+        }
+        for (String candidateName : newCandidateNames) {
+            NameRules.requireValidName(candidateName, "Candidate name");
+            boolean nameTaken = category.getCandidates().stream()
+                    .anyMatch(c -> c.getName().equalsIgnoreCase(candidateName));
+            if (nameTaken) {
+                throw new InvalidNameException("Candidate " + candidateName + " is already standing for "
+                        + category.getName());
+            }
+        }
+
+        election.changeCategoryType(category, newType, newSeats);
+
+        int candidateNumber = highestNumber("C", election.getCategories().stream()
+                .flatMap(c -> c.getCandidates().stream())
+                .map(Candidate::getId));
+        for (String candidateName : newCandidateNames) {
+            candidateNumber++;
+            category.addCandidate(new Candidate("C" + candidateNumber, candidateName,
+                    election.getId(), category.getId()));
+        }
+    }
+
     /** Only the creator may rename a category, and only while the election is still a DRAFT. */
     public void renameCategory(User admin, Election election, Category category, String newName)
             throws ElectionException {
