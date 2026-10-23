@@ -1,6 +1,6 @@
 package com.election.ui;
 
-import com.election.exception.InvalidNameException;
+import com.election.exception.ElectionException;
 import com.election.model.Deadlines;
 import com.election.model.Election;
 import com.election.model.User;
@@ -71,19 +71,44 @@ public class AdminMenu implements Menu {
         view.printTurnout(selected.get());
     }
 
+    /** Typing 0 at any question cancels it; nothing is saved until every question has been answered. */
     private void createElection() {
-        String name = input.readRequired("Election name: ", "The name cannot be empty.");
-        System.out.println("The deadline is the moment voting ends: votes are accepted until then,");
-        System.out.println("and the election cannot be opened once it has passed. Without a time it is 00:00:00,");
-        System.out.println("the very start of that day.");
-        LocalDateTime deadline = input.readDeadline("Voting deadline (" + Deadlines.FORMAT_HINT + "): ");
-        List<NewCategory> categories = new CategoryForm(input).askCategories();
-
         try {
+            String name = askElectionName();
+            System.out.println("The deadline is the moment voting ends: votes are accepted until then,");
+            System.out.println("and the election cannot be opened once it has passed. Without a time it is 00:00:00,");
+            System.out.println("the very start of that day.");
+            LocalDateTime deadline = askFutureDeadline();
+            List<NewCategory> categories = new CategoryForm(input).askCategories();
+
             Election election = managementService.createElection(admin, name, deadline, categories);
             view.printCreatedElection(election);
-        } catch (InvalidNameException e) {
+        } catch (CancelledException e) {
+            System.out.println("Creation cancelled. Nothing was saved.");
+        } catch (ElectionException e) {
             System.out.println("Could not create election: " + e.getMessage());
+        }
+    }
+
+    /** Asks again until the name is not empty and has no comma (a comma would split the CSV row). */
+    private String askElectionName() {
+        while (true) {
+            String name = input.readRequired("Election name (0 to cancel): ", "The name cannot be empty.");
+            if (!name.contains(",")) {
+                return name;
+            }
+            System.out.println("An election name cannot contain a comma.");
+        }
+    }
+
+    /** Asks again until the deadline is a valid date and time that has not passed yet. */
+    private LocalDateTime askFutureDeadline() {
+        while (true) {
+            LocalDateTime deadline = input.readDeadline("Voting deadline (" + Deadlines.FORMAT_HINT + "; 0 to cancel): ");
+            if (!managementService.deadlinePassed(deadline)) {
+                return deadline;
+            }
+            System.out.println("That deadline has already passed. Enter one in the future.");
         }
     }
 }

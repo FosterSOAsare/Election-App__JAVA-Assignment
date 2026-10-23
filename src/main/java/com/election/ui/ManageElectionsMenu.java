@@ -109,8 +109,7 @@ public class ManageElectionsMenu implements Menu {
         // After opening, the draft can no longer be edited, so ask first.
         System.out.println("Opening " + election.getId() + " " + election.getName()
                 + " lets voters vote and freezes its details, categories and candidates.");
-        String confirm = input.readLine("Open it? (yes/no): ");
-        if (!confirm.equalsIgnoreCase("yes") && !confirm.equalsIgnoreCase("y")) {
+        if (!input.confirm("Open it?")) {
             System.out.println(election.getId() + " is still a draft.");
             return false;
         }
@@ -144,8 +143,7 @@ public class ManageElectionsMenu implements Menu {
             System.out.println("Note: its deadline (" + Deadlines.format(election.getDeadline()) + ") has not passed yet. Closing early is"
                     + " allowed for testing; in a real election it could only be closed after the deadline.");
         }
-        String confirm = input.readLine("Close it? (yes/no): ");
-        if (!confirm.equalsIgnoreCase("yes") && !confirm.equalsIgnoreCase("y")) {
+        if (!input.confirm("Close it?")) {
             System.out.println(election.getId() + " is still open.");
             return;
         }

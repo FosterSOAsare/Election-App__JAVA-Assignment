@@ -10,8 +10,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
 
-/** Reads from the keyboard. Every method keeps asking until the answer is in the right shape. */
+/**
+ * Reads from the keyboard. Every method keeps asking until the answer is in the right shape.
+ * The question methods used inside multi-step flows (readRequired, readDeadline, readIntAtLeast, readNames,
+ * readChoiceOrCancel) treat "0" as "cancel the whole flow" and throw CancelledException.
+ */
 public class ConsoleInput {
+
+    public static final String CANCEL = "0";
 
     private final Scanner scanner;
 
@@ -24,15 +30,35 @@ public class ConsoleInput {
         return scanner.nextLine().trim();
     }
 
-    /** Asks a yes/no question; only "yes" or "y" (any case) counts as yes. */
+    /** readLine, except that "0" cancels the flow this question belongs to. */
+    private String readLineOrCancel(String prompt) {
+        String text = readLine(prompt);
+        if (text.equals(CANCEL)) {
+            throw new CancelledException();
+        }
+        return text;
+    }
+
+    /**
+     * Asks a yes/no question until the answer is yes, y, no or n (any case). Anything else, such as a typo,
+     * asks again instead of quietly counting as no.
+     */
     public boolean confirm(String question) {
-        String answer = readLine(question + " (yes/no): ");
-        return answer.equalsIgnoreCase("yes") || answer.equalsIgnoreCase("y");
+        while (true) {
+            String answer = readLine(question + " (yes/no): ");
+            if (answer.equalsIgnoreCase("yes") || answer.equalsIgnoreCase("y")) {
+                return true;
+            }
+            if (answer.equalsIgnoreCase("no") || answer.equalsIgnoreCase("n")) {
+                return false;
+            }
+            System.out.println("Please answer yes or no.");
+        }
     }
 
     public String readRequired(String prompt, String emptyMessage) {
         while (true) {
-            String text = readLine(prompt);
+            String text = readLineOrCancel(prompt);
             if (!text.isEmpty()) {
                 return text;
             }
@@ -43,7 +69,11 @@ public class ConsoleInput {
     /** A date with an optional time; see Deadlines for the accepted formats. No time means 00:00:00. */
     public LocalDateTime readDeadline(String prompt) {
         while (true) {
-            String text = readLine(prompt);
+            String text = readLineOrCancel(prompt);
+            if (text.isEmpty()) {
+                System.out.println("Enter a deadline, as " + Deadlines.FORMAT_HINT + ".");
+                continue;
+            }
             try {
                 return Deadlines.parse(text);
             } catch (DateTimeParseException e) {
@@ -69,7 +99,7 @@ public class ConsoleInput {
 
     public int readIntAtLeast(String prompt, int minimum) {
         while (true) {
-            String text = readLine(prompt);
+            String text = readLineOrCancel(prompt);
             try {
                 int number = Integer.parseInt(text);
                 if (number >= minimum) {
@@ -115,6 +145,27 @@ public class ConsoleInput {
         }
     }
 
+    /** Like readChoice, with "0. Cancel" at the end: 0 cancels the flow this question belongs to. */
+    public int readChoiceOrCancel(String title, List<String> options) {
+        while (true) {
+            System.out.println(title);
+            for (int i = 0; i < options.size(); i++) {
+                System.out.println("  " + (i + 1) + ". " + options.get(i));
+            }
+            System.out.println("  0. Cancel");
+            String text = readLineOrCancel("> ");
+            try {
+                int choice = Integer.parseInt(text);
+                if (choice >= 1 && choice <= options.size()) {
+                    return choice - 1;
+                }
+            } catch (NumberFormatException e) {
+                // Not a number: fall through to the message below and ask again.
+            }
+            System.out.println("Choose a number from 0 to " + options.size() + ".");
+        }
+    }
+
     /** Prints the options as a numbered list and returns the index (from 0) of the one picked. */
     public int readChoice(String title, List<String> options) {
         while (true) {
@@ -141,7 +192,7 @@ public class ConsoleInput {
      */
     public List<String> readNames(String prompt, boolean checkNameRules) {
         while (true) {
-            List<String> names = Arrays.stream(readLine(prompt).split(","))
+            List<String> names = Arrays.stream(readLineOrCancel(prompt).split(","))
                     .map(String::trim)
                     .filter(n -> !n.isEmpty())
                     .toList();

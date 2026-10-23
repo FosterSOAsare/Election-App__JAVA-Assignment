@@ -32,7 +32,8 @@ public class CategoryForm {
     public List<NewCategory> askCategories(List<String> existingNames) {
         List<String> categoryNames;
         while (true) {
-            categoryNames = input.readNames("Categories, separated by commas (e.g. President, Treasurer): ", false);
+            categoryNames = input.readNames("Categories, separated by commas (e.g. President, Treasurer; 0 to cancel): ",
+                    false);
             Optional<String> taken = categoryNames.stream()
                     .filter(n -> existingNames.stream().anyMatch(n::equalsIgnoreCase))
                     .findFirst();
@@ -53,10 +54,10 @@ public class CategoryForm {
     private NewCategory askCategoryDetails(String categoryName) {
         System.out.println();
         List<String> typeLabels = Arrays.stream(BallotType.values()).map(BallotType::getLabel).toList();
-        BallotType ballotType = BallotType.values()[input.readChoice("Type for " + categoryName + ":", typeLabels)];
+        BallotType ballotType = BallotType.values()[input.readChoiceOrCancel("Type for " + categoryName + ":", typeLabels)];
 
         int seats = ballotType == BallotType.SELECT_MULTIPLE
-                ? input.readIntAtLeast("How many winners for " + categoryName + "? (2 or more): ", 2)
+                ? input.readIntAtLeast("How many winners for " + categoryName + "? (2 or more, 0 to cancel): ", 2)
                 : 1;
 
         List<String> candidateNames = ballotType == BallotType.YES_NO
@@ -69,7 +70,8 @@ public class CategoryForm {
     /** A select-multiple category needs more candidates than winners, or there would be nothing to choose. */
     private List<String> askCandidateNames(String categoryName, BallotType ballotType, int seats) {
         while (true) {
-            List<String> names = input.readNames("Candidates for " + categoryName + ", separated by commas: ", true);
+            List<String> names = input.readNames("Candidates for " + categoryName + ", separated by commas (0 to cancel): ",
+                    true);
             if (ballotType != BallotType.SELECT_MULTIPLE || names.size() > seats) {
                 return names;
             }

@@ -167,9 +167,10 @@ public class VoterMenu implements Menu {
 
     private String promptFor(Category category) {
         return switch (category.getBallotType()) {
-            case SELECT_ONE -> "Enter the ID of one candidate: ";
-            case SELECT_MULTIPLE -> "Enter up to " + category.getSeats() + " candidate IDs, separated by commas: ";
-            case YES_NO -> "Enter YES or NO: ";
+            case SELECT_ONE -> "Enter the ID of one candidate (Enter to skip): ";
+            case SELECT_MULTIPLE -> "Enter up to " + category.getSeats()
+                    + " candidate IDs, separated by commas (Enter to skip): ";
+            case YES_NO -> "Enter YES or NO (Enter to skip): ";
         };
     }
 }

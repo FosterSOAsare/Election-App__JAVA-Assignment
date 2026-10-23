@@ -90,12 +90,14 @@ public class EditDraftMenu implements Menu {
     /** The same questions as Create Election; the new categories and their candidates are shown afterwards. */
     private void addCategories() {
         List<String> existingNames = election.getCategories().stream().map(Category::getName).toList();
-        List<NewCategory> categories = new CategoryForm(input).askCategories(existingNames);
         try {
+            List<NewCategory> categories = new CategoryForm(input).askCategories(existingNames);
             managementService.addCategories(admin, election, categories);
             System.out.println("Added " + categories.size() + (categories.size() == 1 ? " category" : " categories")
                     + " to " + election.getId() + ".");
             view.printElectionCategories(election);
+        } catch (CancelledException e) {
+            System.out.println("Cancelled. No categories were added.");
         } catch (ElectionException e) {
             System.out.println("Nothing was added: " + e.getMessage() + ".");
         }
@@ -169,9 +171,12 @@ public class EditDraftMenu implements Menu {
         System.out.println("  Type:  " + ElectionView.typeDescription(category));
         renameCategory(category);
 
-        String answer = input.readLine("Change the type? (yes/no): ");
-        if (answer.equalsIgnoreCase("yes") || answer.equalsIgnoreCase("y")) {
-            changeCategoryType(category);
+        if (input.confirm("Change the type?")) {
+            try {
+                changeCategoryType(category);
+            } catch (CancelledException e) {
+                System.out.println("Cancelled. The type was not changed.");
+            }
         }
     }
 
@@ -181,10 +186,10 @@ public class EditDraftMenu implements Menu {
      */
     private void changeCategoryType(Category category) {
         List<String> typeLabels = Arrays.stream(BallotType.values()).map(BallotType::getLabel).toList();
-        BallotType newType = BallotType.values()[input.readChoice("New type for " + category.getName() + ":",
+        BallotType newType = BallotType.values()[input.readChoiceOrCancel("New type for " + category.getName() + ":",
                 typeLabels)];
         int newSeats = newType == BallotType.SELECT_MULTIPLE
-                ? input.readIntAtLeast("How many winners for " + category.getName() + "? (2 or more): ", 2)
+                ? input.readIntAtLeast("How many winners for " + category.getName() + "? (2 or more, 0 to cancel): ", 2)
                 : 1;
 
         if (newType == category.getBallotType() && newSeats == category.getSeats()) {
@@ -199,8 +204,7 @@ public class EditDraftMenu implements Menu {
                 String names = candidates.stream().map(c -> c.getId() + " " + c.getName())
                         .collect(Collectors.joining(", "));
                 System.out.println("A Yes / No question has no candidates, so this removes " + names + ".");
-                String confirm = input.readLine("Continue? (yes/no): ");
-                if (!confirm.equalsIgnoreCase("yes") && !confirm.equalsIgnoreCase("y")) {
+                if (!input.confirm("Continue?")) {
                     System.out.println("The type was not changed.");
                     return;
                 }
@@ -236,7 +240,7 @@ public class EditDraftMenu implements Menu {
     /** A comma-separated list of valid names, asked again until none of them is already standing in the category. */
     private List<String> readNamesNotStandingIn(Category category) {
         while (true) {
-            List<String> names = input.readNames("Candidates for " + category.getName() + ", separated by commas: ",
+            List<String> names = input.readNames("Candidates for " + category.getName() + ", separated by commas (0 to cancel): ",
                     true);
             Optional<String> taken = names.stream()
                     .filter(n -> category.getCandidates().stream().anyMatch(c -> c.getName().equalsIgnoreCase(n)))
@@ -254,14 +258,16 @@ public class EditDraftMenu implements Menu {
             System.out.println(category.getName() + " is a Yes / No question, so it has no candidates.");
             return;
         }
-        List<String> names = readNamesNotStandingIn(category);
         try {
+            List<String> names = readNamesNotStandingIn(category);
             managementService.addCandidates(admin, election, category, names);
             System.out.println("Added " + names.size() + (names.size() == 1 ? " candidate" : " candidates")
                     + " to " + category.getName() + ":");
             for (Candidate candidate : category.getCandidates()) {
                 System.out.println("  " + candidate.getId() + "  " + candidate.getName());
             }
+        } catch (CancelledException e) {
+            System.out.println("Cancelled. No candidates were added.");
         } catch (ElectionException e) {
             System.out.println("Nothing was added: " + e.getMessage() + ".");
         }

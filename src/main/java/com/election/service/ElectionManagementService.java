@@ -82,7 +82,12 @@ public class ElectionManagementService {
 
     /** The deadline is the moment voting ends, so it has passed from that moment on. */
     public boolean deadlinePassed(Election election) {
-        return !LocalDateTime.now(clock).isBefore(election.getDeadline());
+        return deadlinePassed(election.getDeadline());
+    }
+
+    /** True from the moment the deadline is reached; a new or edited election needs a deadline still to come. */
+    public boolean deadlinePassed(LocalDateTime deadline) {
+        return !LocalDateTime.now(clock).isBefore(deadline);
     }
 
     /**
@@ -163,7 +168,14 @@ public class ElectionManagementService {
      * @param categories the categories in the order the admin entered them
      */
     public Election createElection(User admin, String name, LocalDateTime deadline, List<NewCategory> categories)
-            throws InvalidNameException {
+            throws ElectionException {
+        // The same rules as editing a draft's details, so a new election can always be opened later.
+        if (name == null || name.isBlank() || name.contains(",")) {
+            throw new InvalidNameException("Election name '" + name + "' must not be empty or contain a comma");
+        }
+        if (deadlinePassed(deadline)) {
+            throw new ElectionStateException("The deadline " + Deadlines.format(deadline) + " has already passed");
+        }
         Election election = new Election(electionRepository.nextId(), name, deadline, ElectionStatus.DRAFT,
                 admin.getId());
         addNewCategories(election, categories);
