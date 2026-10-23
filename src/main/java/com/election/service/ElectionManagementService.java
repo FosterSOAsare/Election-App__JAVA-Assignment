@@ -224,22 +224,45 @@ public class ElectionManagementService {
         if (newType == BallotType.YES_NO && !newCandidateNames.isEmpty()) {
             throw new IllegalArgumentException("A Yes / No question cannot have candidates");
         }
-        for (String candidateName : newCandidateNames) {
+        checkNewCandidateNames(category, newCandidateNames);
+        election.changeCategoryType(category, newType, newSeats);
+        addCandidatesWithNextIds(election, category, newCandidateNames);
+    }
+
+    /** Adds candidates to a Select one or Select multiple category of one of the admin's drafts. */
+    public void addCandidates(User admin, Election election, Category category, List<String> names)
+            throws ElectionException {
+        requireCreator(admin, election, "edit");
+        requireDraft(election);
+        if (category.getBallotType() == BallotType.YES_NO) {
+            throw new ElectionStateException(category.getName() + " is a Yes / No question, so it has no candidates");
+        }
+        checkNewCandidateNames(category, names);
+        addCandidatesWithNextIds(election, category, names);
+    }
+
+    /** Every name valid, none twice, none already standing in the category. Checked before anything is added. */
+    private void checkNewCandidateNames(Category category, List<String> names) throws InvalidNameException {
+        for (int i = 0; i < names.size(); i++) {
+            String candidateName = names.get(i);
             NameRules.requireValidName(candidateName, "Candidate name");
-            boolean nameTaken = category.getCandidates().stream()
+            boolean standing = category.getCandidates().stream()
                     .anyMatch(c -> c.getName().equalsIgnoreCase(candidateName));
-            if (nameTaken) {
+            boolean typedTwice = names.subList(0, i).stream().anyMatch(candidateName::equalsIgnoreCase);
+            if (standing || typedTwice) {
                 throw new InvalidNameException("Candidate " + candidateName + " is already standing for "
                         + category.getName());
             }
         }
+    }
 
-        election.changeCategoryType(category, newType, newSeats);
-
+    /** New candidates get the next free Cn in the whole election, so ids never clash across categories. */
+    private void addCandidatesWithNextIds(Election election, Category category, List<String> names)
+            throws InvalidNameException {
         int candidateNumber = highestNumber("C", election.getCategories().stream()
                 .flatMap(c -> c.getCandidates().stream())
                 .map(Candidate::getId));
-        for (String candidateName : newCandidateNames) {
+        for (String candidateName : names) {
             candidateNumber++;
             category.addCandidate(new Candidate("C" + candidateNumber, candidateName,
                     election.getId(), category.getId()));

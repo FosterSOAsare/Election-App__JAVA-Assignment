@@ -121,15 +121,17 @@ public class EditDraftMenu implements Menu {
             System.out.println("--- Edit category " + category.getId() + " " + category.getName() + " ---");
             System.out.println("1. Edit category details");
             System.out.println("2. Edit candidates");
-            System.out.println("3. Remove this category");
+            System.out.println("3. Add candidates");
+            System.out.println("4. Remove this category");
             System.out.println("0. Back");
 
             String choice = input.readLine("> ");
             switch (choice) {
                 case "1" -> editCategoryDetails(category);
                 case "2" -> editCandidates(category);
+                case "3" -> addCandidates(category);
                 // Once it is removed there is nothing left to edit, so this menu ends.
-                case "3" -> editing = !removeCategory(category);
+                case "4" -> editing = !removeCategory(category);
                 case "0" -> editing = false;
                 default -> System.out.println("Unknown option: " + choice);
             }
@@ -224,16 +226,44 @@ public class EditDraftMenu implements Menu {
     private List<String> askNewCandidateNames(Category category, int needed) {
         while (true) {
             System.out.println("It needs at least " + needed + " more " + (needed == 1 ? "candidate" : "candidates") + ".");
+            List<String> names = readNamesNotStandingIn(category);
+            if (names.size() >= needed) {
+                return names;
+            }
+        }
+    }
+
+    /** A comma-separated list of valid names, asked again until none of them is already standing in the category. */
+    private List<String> readNamesNotStandingIn(Category category) {
+        while (true) {
             List<String> names = input.readNames("Candidates for " + category.getName() + ", separated by commas: ",
                     true);
             Optional<String> taken = names.stream()
                     .filter(n -> category.getCandidates().stream().anyMatch(c -> c.getName().equalsIgnoreCase(n)))
                     .findFirst();
-            if (taken.isPresent()) {
-                System.out.println(taken.get() + " is already standing for " + category.getName() + ".");
-            } else if (names.size() >= needed) {
+            if (taken.isEmpty()) {
                 return names;
             }
+            System.out.println(taken.get() + " is already standing for " + category.getName() + ".");
+        }
+    }
+
+    /** New candidates for a Select one or Select multiple category, shown with their new ids afterwards. */
+    private void addCandidates(Category category) {
+        if (category.getBallotType() == BallotType.YES_NO) {
+            System.out.println(category.getName() + " is a Yes / No question, so it has no candidates.");
+            return;
+        }
+        List<String> names = readNamesNotStandingIn(category);
+        try {
+            managementService.addCandidates(admin, election, category, names);
+            System.out.println("Added " + names.size() + (names.size() == 1 ? " candidate" : " candidates")
+                    + " to " + category.getName() + ":");
+            for (Candidate candidate : category.getCandidates()) {
+                System.out.println("  " + candidate.getId() + "  " + candidate.getName());
+            }
+        } catch (ElectionException e) {
+            System.out.println("Nothing was added: " + e.getMessage() + ".");
         }
     }
 

@@ -55,6 +55,7 @@ public class VoterMenu implements Menu {
         System.out.println("Logged out.");
     }
 
+    /** Lists the open elections, then shows one election's categories and candidates, so voters can look first. */
     private void viewOpenElections() {
         List<Election> open = votingService.openElections();
         if (open.isEmpty()) {
@@ -62,6 +63,17 @@ public class VoterMenu implements Menu {
             return;
         }
         view.printElectionTable("Open elections:", open);
+
+        String electionId = input.readLine("Election ID to see its categories and candidates (Enter to go back): ");
+        if (electionId.isEmpty()) {
+            return;
+        }
+        Optional<Election> selected = votingService.findOpenElection(electionId);
+        if (selected.isEmpty()) {
+            System.out.println("No open election with ID " + electionId);
+            return;
+        }
+        view.printElectionCategories(selected.get());
     }
 
     /** Asks for every category first and saves nothing until the voter confirms at the end. */
