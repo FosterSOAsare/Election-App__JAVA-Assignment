@@ -1,56 +1,62 @@
 package com.election.loader;
 
+import com.election.exception.DataLoadException;
+import com.election.exception.InvalidBallotException;
 import com.election.model.Ballot;
+import com.election.model.Category;
 import com.election.model.Election;
 import com.election.repository.ElectionRepository;
+import com.election.service.BallotFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
-/** Loads ballots.csv and adds each ballot to its election, as written; the voting rules are not checked yet. */
-public class BallotCsvLoader {
+/**
+ * Loads ballots.csv. Each row goes through BallotFactory, so a seeded ballot is built and checked
+ * by exactly the same rules as a vote typed in the console.
+ */
+public class BallotCsvLoader implements DataLoader<Ballot> {
 
+    private static final int VOTER_ID = 0;
+    private static final int ELECTION_ID = 1;
+    private static final int CATEGORY_ID = 2;
+    private static final int CHOICES = 3;
+
+    // Several choices are separated by | because commas already split the columns.
+    private static final Pattern CHOICE_SEPARATOR = Pattern.compile(Pattern.quote("|"));
+
+    private final CsvReader csvReader = new CsvReader();
     private final ElectionRepository electionRepository;
+    private final BallotFactory ballotFactory;
 
-    public BallotCsvLoader(ElectionRepository electionRepository) {
+    public BallotCsvLoader(ElectionRepository electionRepository, BallotFactory ballotFactory) {
         this.electionRepository = electionRepository;
+        this.ballotFactory = ballotFactory;
     }
 
-    public List<Ballot> load(Path path) throws IOException {
-        List<String> lines = Files.readAllLines(path);
+    @Override
+    public List<Ballot> load(Path path) throws DataLoadException {
         List<Ballot> ballots = new ArrayList<>();
-
-        // Start at 1 to skip the header row (voterId,electionId,categoryId,choices).
-        for (int i = 1; i < lines.size(); i++) {
-            String line = lines.get(i);
-            if (line.isBlank()) {
-                continue;
-            }
-
-            String where = "ballots.csv line " + (i + 1) + ": ";
-            String[] columns = line.split(",");
-            if (columns.length != 4) {
-                throw new IllegalArgumentException(where + "expected 4 columns but found " + columns.length);
-            }
-
-            String voterId = columns[0].trim();
-            String electionId = columns[1].trim();
-            String categoryId = columns[2].trim();
-            // Several choices are separated by | because commas already split the columns. "\\|" escapes it.
-            List<String> choices = Arrays.stream(columns[3].split("\\|"))
+        for (CsvReader.Row row : csvReader.read(path, "voterId", "electionId", "categoryId", "choices")) {
+            Election election = electionRepository.findById(row.get(ELECTION_ID))
+                    .orElseThrow(() -> row.error("unknown election " + row.get(ELECTION_ID)));
+            Category category = election.findCategory(row.get(CATEGORY_ID))
+                    .orElseThrow(() -> row.error("unknown category " + row.get(CATEGORY_ID) + " in "
+                            + election.getId()));
+            List<String> choices = Arrays.stream(CHOICE_SEPARATOR.split(row.get(CHOICES)))
                     .map(String::trim)
                     .toList();
 
-            Election election = electionRepository.findById(electionId)
-                    .orElseThrow(() -> new IllegalArgumentException(where + "unknown election " + electionId));
-
-            Ballot ballot = new Ballot(voterId, election.getId(), categoryId, choices);
-            election.addBallot(ballot);
-            ballots.add(ballot);
+            try {
+                Ballot ballot = ballotFactory.create(row.get(VOTER_ID), category, choices);
+                election.addBallot(ballot);
+                ballots.add(ballot);
+            } catch (InvalidBallotException | IllegalArgumentException e) {
+                throw row.error(e);
+            }
         }
         return ballots;
     }

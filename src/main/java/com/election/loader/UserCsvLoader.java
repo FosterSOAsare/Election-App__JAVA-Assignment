@@ -1,44 +1,37 @@
 package com.election.loader;
 
+import com.election.exception.DataLoadException;
 import com.election.model.Administrator;
 import com.election.model.Role;
 import com.election.model.User;
 import com.election.model.Voter;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Loads users.csv and builds an Administrator or a Voter from the role column. */
-public class UserCsvLoader {
+public class UserCsvLoader implements DataLoader<User> {
 
-    public List<User> load(Path path) throws IOException {
-        List<String> lines = Files.readAllLines(path);
+    private static final int ID = 0;
+    private static final int ROLE = 1;
+
+    private final CsvReader csvReader = new CsvReader();
+
+    @Override
+    public List<User> load(Path path) throws DataLoadException {
         List<User> users = new ArrayList<>();
-
-        // Start at 1 to skip the header row (id,role).
-        for (int i = 1; i < lines.size(); i++) {
-            String line = lines.get(i);
-            if (line.isBlank()) {
-                continue;
+        for (CsvReader.Row row : csvReader.read(path, "id", "role")) {
+            Role role = row.parseEnum(Role.class, ROLE);
+            try {
+                User user = switch (role) {
+                    case ADMIN -> new Administrator(row.get(ID));
+                    case VOTER -> new Voter(row.get(ID));
+                };
+                users.add(user);
+            } catch (IllegalArgumentException e) {
+                throw row.error(e);
             }
-
-            String[] columns = line.split(",");
-            if (columns.length != 2) {
-                throw new IllegalArgumentException(
-                        "users.csv line " + (i + 1) + ": expected 2 columns but found " + columns.length);
-            }
-
-            String id = columns[0].trim();
-            Role role = Role.valueOf(columns[1].trim());
-
-            User user = switch (role) {
-                case ADMIN -> new Administrator(id);
-                case VOTER -> new Voter(id);
-            };
-            users.add(user);
         }
         return users;
     }

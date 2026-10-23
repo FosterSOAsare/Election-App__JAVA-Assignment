@@ -1,13 +1,12 @@
 package com.election.loader;
 
+import com.election.exception.DataLoadException;
 import com.election.exception.InvalidNameException;
 import com.election.model.Candidate;
 import com.election.model.Category;
 import com.election.model.Election;
 import com.election.repository.ElectionRepository;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -15,52 +14,44 @@ import java.util.List;
 import java.util.Set;
 
 /** Loads candidates.csv and adds each candidate to its category, found through its election. */
-public class CandidateCsvLoader {
+public class CandidateCsvLoader implements DataLoader<Candidate> {
 
+    private static final int ID = 0;
+    private static final int NAME = 1;
+    private static final int ELECTION_ID = 2;
+    private static final int CATEGORY_ID = 3;
+
+    private final CsvReader csvReader = new CsvReader();
     private final ElectionRepository electionRepository;
 
     public CandidateCsvLoader(ElectionRepository electionRepository) {
         this.electionRepository = electionRepository;
     }
 
-    public List<Candidate> load(Path path) throws IOException, InvalidNameException {
-        List<String> lines = Files.readAllLines(path);
+    @Override
+    public List<Candidate> load(Path path) throws DataLoadException {
         List<Candidate> candidates = new ArrayList<>();
         // A candidate id only has to be unique inside its election, so the key is "electionId:candidateId".
         Set<String> seenIds = new HashSet<>();
 
-        // Start at 1 to skip the header row (id,name,electionId,categoryId).
-        for (int i = 1; i < lines.size(); i++) {
-            String line = lines.get(i);
-            if (line.isBlank()) {
-                continue;
-            }
-
-            String where = "candidates.csv line " + (i + 1) + ": ";
-            String[] columns = line.split(",");
-            if (columns.length != 4) {
-                throw new IllegalArgumentException(where + "expected 4 columns but found " + columns.length);
-            }
-
-            String id = columns[0].trim();
-            String name = columns[1].trim();
-            String electionId = columns[2].trim();
-            String categoryId = columns[3].trim();
-
+        for (CsvReader.Row row : csvReader.read(path, "id", "name", "electionId", "categoryId")) {
             // Find the election first, then the category inside it: electionId + categoryId is the full key.
-            Election election = electionRepository.findById(electionId)
-                    .orElseThrow(() -> new IllegalArgumentException(where + "unknown election " + electionId));
-            Category category = election.findCategory(categoryId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            where + "unknown category " + categoryId + " in " + electionId));
-
-            if (!seenIds.add(election.getId() + ":" + id)) {
-                throw new IllegalArgumentException(where + "duplicate candidate id " + id + " in " + electionId);
+            Election election = electionRepository.findById(row.get(ELECTION_ID))
+                    .orElseThrow(() -> row.error("unknown election " + row.get(ELECTION_ID)));
+            Category category = election.findCategory(row.get(CATEGORY_ID))
+                    .orElseThrow(() -> row.error("unknown category " + row.get(CATEGORY_ID) + " in "
+                            + election.getId()));
+            if (!seenIds.add(election.getId() + ":" + row.get(ID))) {
+                throw row.error("duplicate candidate id " + row.get(ID) + " in " + election.getId());
             }
 
-            Candidate candidate = new Candidate(id, name, election.getId(), category.getId());
-            category.addCandidate(candidate);
-            candidates.add(candidate);
+            try {
+                Candidate candidate = new Candidate(row.get(ID), row.get(NAME), election.getId(), category.getId());
+                category.addCandidate(candidate);
+                candidates.add(candidate);
+            } catch (InvalidNameException | IllegalArgumentException e) {
+                throw row.error(e);
+            }
         }
         return candidates;
     }

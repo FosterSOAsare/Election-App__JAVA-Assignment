@@ -6,7 +6,6 @@ import com.election.exception.ElectionStateException;
 import com.election.exception.IneligibleVoterException;
 import com.election.exception.InvalidBallotException;
 import com.election.model.Ballot;
-import com.election.model.Candidate;
 import com.election.model.Category;
 import com.election.model.Deadlines;
 import com.election.model.Election;
@@ -18,21 +17,24 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Casting votes. A voter's answers are prepared one category at a time and only stored together at the end,
- * so a voter who stops halfway leaves no ballots behind. Every rule is checked here.
+ * so a voter who stops halfway leaves no ballots behind. This class checks who may vote and when
+ * (a voter, an OPEN election, before the deadline, once per election); whether the choices fit the
+ * category is checked by the Ballot subclass that BallotFactory builds.
  */
 public class VotingService {
 
     private final ElectionRepository electionRepository;
     // Where "today" comes from. The app passes the system clock; a test can pass a fixed one.
     private final Clock clock;
+    private final BallotFactory ballotFactory;
 
-    public VotingService(ElectionRepository electionRepository, Clock clock) {
+    public VotingService(ElectionRepository electionRepository, Clock clock, BallotFactory ballotFactory) {
         this.electionRepository = electionRepository;
         this.clock = clock;
+        this.ballotFactory = ballotFactory;
     }
 
     /** OPEN elections whose deadline has not passed: the ones a voter can still vote in. */
@@ -76,7 +78,8 @@ public class VotingService {
     /**
      * Checks one category's answer and builds the ballot, but does not store it. The rules, in order:
      * the user can vote, the election is OPEN, its deadline has not passed, they have not voted in it yet,
-     * the category exists, and the choices fit the category's ballot type.
+     * the category exists, and the choices fit the category's ballot type (checked by the ballot itself,
+     * through BallotFactory).
      */
     public Ballot prepareBallot(User voter, Election election, String categoryId, List<String> choices)
             throws ElectionException {
@@ -98,55 +101,7 @@ public class VotingService {
                 .orElseThrow(() -> new InvalidBallotException("There is no category " + categoryId
                         + " in " + election.getId()));
 
-        // The ballot type belongs to the category, so the category decides what a valid answer looks like.
-        List<String> checkedChoices = switch (category.getBallotType()) {
-            case SELECT_ONE -> checkSelectOne(category, choices);
-            case SELECT_MULTIPLE -> checkSelectMultiple(category, choices);
-            case YES_NO -> checkYesNo(choices);
-        };
-
-        return new Ballot(voter.getId(), election.getId(), category.getId(), checkedChoices);
-    }
-
-    private List<String> checkSelectOne(Category category, List<String> choices) throws InvalidBallotException {
-        if (choices.size() != 1) {
-            throw new InvalidBallotException("Choose exactly 1 candidate for " + category.getName());
-        }
-        return List.of(candidateId(category, choices.get(0)));
-    }
-
-    private List<String> checkSelectMultiple(Category category, List<String> choices) throws InvalidBallotException {
-        if (choices.isEmpty() || choices.size() > category.getSeats()) {
-            throw new InvalidBallotException("Choose between 1 and " + category.getSeats() + " candidates for "
-                    + category.getName());
-        }
-        List<String> ids = new ArrayList<>();
-        for (String choice : choices) {
-            String id = candidateId(category, choice);
-            if (ids.contains(id)) {
-                throw new InvalidBallotException(id + " was chosen twice");
-            }
-            ids.add(id);
-        }
-        return ids;
-    }
-
-    private List<String> checkYesNo(List<String> choices) throws InvalidBallotException {
-        // Locale.ROOT makes "yes" upper-case to "YES" the same way on every computer.
-        String answer = choices.size() == 1 ? choices.get(0).toUpperCase(Locale.ROOT) : "";
-        if (!answer.equals("YES") && !answer.equals("NO")) {
-            throw new InvalidBallotException("Answer YES or NO");
-        }
-        return List.of(answer);
-    }
-
-    /** Finds the candidate in this category whatever case the id was typed in, so "c1" means C1. */
-    private String candidateId(Category category, String typedId) throws InvalidBallotException {
-        return category.getCandidates().stream()
-                .map(Candidate::getId)
-                .filter(id -> id.equalsIgnoreCase(typedId))
-                .findFirst()
-                .orElseThrow(() -> new InvalidBallotException(typedId + " is not a candidate for "
-                        + category.getName()));
+        // The factory builds the ballot subclass for this category's type, and the ballot checks itself.
+        return ballotFactory.create(voter.getId(), category, choices);
     }
 }

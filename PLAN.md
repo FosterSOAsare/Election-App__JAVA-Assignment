@@ -27,7 +27,7 @@ The sample election, Student Council 2026, has three categories:
 | Abstract class / interface | `User`, `Ballot` and `CategoryResult` are abstract (shared state + behaviour); `ManagementPermission`, `VotingPermission`, `CountingMethod`, `DataLoader<T>` and `Menu` are interfaces |
 | Business logic | Role permissions, election lifecycle, setup checks before opening, registration checks, one vote per voter per category, ballot validation per type, multi-seat counting, yes/no outcome, tie handling |
 | File loading | `users.csv`, `elections.csv`, `categories.csv`, `candidates.csv`, `ballots.csv` loaded at startup |
-| Exceptions | Checked `ElectionException` hierarchy plus `DataLoadException`; bad rows reported and skipped |
+| Exceptions | Checked `ElectionException` hierarchy plus `DataLoadException`; a bad data row stops loading with its file, line and reason (for example `categories.csv line 13: 'RANKED' is not one of [SELECT_ONE, SELECT_MULTIPLE, YES_NO]`) |
 | Unit tests | JUnit tests on permissions, lifecycle, counting, voting rules, ballot validation and loaders |
 | SOLID | Loading, election management, voting, counting and display live in separate classes; a new ballot type plugs in without changing existing counting code |
 | Collections and Java features | `Map` of elections and categories, `Map<String, Set<String>>` of who voted where, `List` of ballots; enums, `EnumMap`, `LocalDate` for election dates, streams, `Optional`, generics |
@@ -52,10 +52,10 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `Category` | class | id, electionId, name, ballot type, seats, its candidates |
 | model | `BallotType` | enum | SELECT_ONE, SELECT_MULTIPLE, YES_NO |
 | model | `Candidate` | class | id, name, electionId, categoryId |
-| model | `Ballot` | abstract class | voterId, electionId, categoryId; abstract `selections()` returns the chosen option ids; abstract `validate(Category)` |
+| model | `Ballot` | abstract class | voterId, electionId, categoryId, choices (`getChoices()`, what counting reads); abstract `validate(Category)` checks the choices and stores them exactly as the category spells them (`c1` → C1, `yes` → YES) |
 | model | `SingleChoiceBallot` | extends Ballot | exactly 1 candidate from this category |
 | model | `MultipleChoiceBallot` | extends Ballot | 1 to `seats` distinct candidates from this category |
-| model | `YesNoBallot` | extends Ballot | a yes or no answer; `selections()` returns `YES` or `NO` |
+| model | `YesNoBallot` | extends Ballot | a yes or no answer in any case; its choices become `YES` or `NO` |
 | model | `CategoryResult` | abstract class | category, `Map<String, Integer>` tallies; abstract `summary()` |
 | model | `CandidateResult` | extends CategoryResult | `List<Candidate>` winners, candidates tied for the last seat |
 | model | `YesNoResult` | extends CategoryResult | yes count, no count, passed |
@@ -66,11 +66,11 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | service | `MostVotesCount` | implements CountingMethod | tallies every selection; the top `seats` candidates win (1 for SELECT_ONE) |
 | service | `YesNoCount` | implements CountingMethod | passes when yes votes outnumber no votes |
 | service | `CountingMethodRegistry` | class | `EnumMap<BallotType, CountingMethod>`: picks the counting method for a category |
-| service | `BallotFactory` | class | builds the right `Ballot` subclass from a category and the raw choices text; used by the loader and the console |
+| service | `BallotFactory` | class | `create(voterId, category, choices)` builds the subclass for the category's ballot type and has it validate itself; `VotingService` (console votes) and `BallotCsvLoader` (seeded ballots) both use it, so both go through the same rules |
 | service | `VotingService` | class | `prepareBallot(voter, election, categoryId, choices)` checks one answer without storing it: user can vote, election is OPEN, its deadline has not passed, voter has not voted in this election yet, category exists, choices fit the ballot type (candidate ids are matched ignoring case). `submitBallots` re-checks every prepared ballot and stores them all together, or none. `hasVoted(voter, election)`: a voter submits once per election, so any ballot of theirs in it counts |
 | service | `TallyService` | class | `closedElections()` and `findClosedElection(id)` for the results menu; counts every category of a CLOSED election; returns `Map<Category, CategoryResult>` in file order |
 | loader | `DataLoader<T>` | interface | `List<T> load(Path)` throws `DataLoadException` |
-| loader | `CsvReader` | class | skips header, splits lines, reports line numbers |
+| loader | `CsvReader` | class | reads a file, checks its header, skips blank lines, splits each line and checks the column count; each `Row` knows its file and line and offers `parseInt`, the generic `parseEnum` and `error(...)` for a `DataLoadException` with that location |
 | loader | `UserCsvLoader` | implements DataLoader | builds an `Administrator` or `Voter` from the role column |
 | loader | `ElectionCsvLoader`, `CategoryCsvLoader`, `CandidateCsvLoader` | implement DataLoader | one per file |
 | loader | `BallotCsvLoader` | implements DataLoader | reads raw ballot rows and passes them to `BallotFactory` |
@@ -272,7 +272,7 @@ V003,E5,CAT1,C1
 V004,E5,CAT1,C3
 ```
 
-Every seeded ballot is valid, and drafts (E2, E6) have no ballots at all, since voting only starts once an election is opened. `BallotCsvLoader` only checks the column count and that the election exists, and stores every row in its election as a plain `Ballot`; the voting rules are enforced by `VotingService` for votes cast in the console, and are tested there. Ballots are secret: View all elections only shows how many people have voted, never who chose what.
+Every seeded ballot is valid, and drafts (E2, E6) have no ballots at all, since voting only starts once an election is opened. `BallotCsvLoader` sends every row through `BallotFactory`, so a seeded ballot is built and checked exactly like a console vote; the remaining voting rules (who may vote, OPEN, deadline, one submission) apply to console votes in `VotingService`. Ballots are secret: View all elections only shows how many people have voted, never who chose what.
 
 V010 skips the President vote and V009 votes only for President. Both are allowed: voting in a category is optional.
 
