@@ -62,19 +62,12 @@ public class AdminMenu implements Menu {
             System.out.println("There are no elections yet.");
             return;
         }
-        view.printElectionTable("All elections:", elections);
-
-        String electionId = input.readLine("Election ID to see its categories (Enter to go back): ");
-        if (electionId.isEmpty()) {
-            return;
-        }
-
-        Optional<Election> selected = managementService.findElection(electionId);
+        Optional<Election> selected = new ElectionPicker(input).pick("All elections (pick one to see it):",
+                elections);
         if (selected.isEmpty()) {
-            System.out.println("Unknown election ID: " + electionId);
             return;
         }
-        view.printElectionCategories(selected.get());
+        view.printElection(selected.get());
         view.printTurnout(selected.get());
     }
 

@@ -5,7 +5,6 @@ import com.election.exception.InvalidNameException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public class Category {
 
@@ -108,12 +107,6 @@ public class Category {
             throw new IllegalArgumentException("Candidate " + candidate.getName() + " is already standing for " + name);
         }
         candidatesById.put(candidate.getId(), candidate);
-    }
-
-    public Optional<Candidate> findCandidate(String candidateId) {
-        return candidatesById.values().stream()
-                .filter(c -> c.getId().equalsIgnoreCase(candidateId))
-                .findFirst();
     }
 
     /** Renames one of this category's candidates; the new name must be valid and not used by another candidate here. */

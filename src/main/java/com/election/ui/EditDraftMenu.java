@@ -110,8 +110,8 @@ public class EditDraftMenu implements Menu {
         List<String> labels = categories.stream()
                 .map(c -> c.getId() + "  " + c.getName() + "  [" + ElectionView.typeDescription(c) + "]")
                 .toList();
-        Category category = categories.get(input.readChoice("Which category?", labels));
-        editCategory(category);
+        input.pick("Which category?", null, labels)
+                .ifPresent(index -> editCategory(categories.get(index)));
     }
 
     private void editCategory(Category category) {
@@ -297,23 +297,18 @@ public class EditDraftMenu implements Menu {
                 System.out.println(category.getName() + " has no candidates.");
                 return;
             }
-            System.out.println();
-            System.out.println("Candidates for " + category.getName() + ":");
             int idWidth = candidates.stream().mapToInt(c -> c.getId().length()).max().orElse(0);
-            for (Candidate candidate : candidates) {
-                System.out.printf("  %-" + idWidth + "s  %s%n", candidate.getId(), candidate.getName());
-            }
+            List<String> labels = candidates.stream()
+                    .map(c -> String.format("%-" + idWidth + "s  %s", c.getId(), c.getName()))
+                    .toList();
 
-            String candidateId = input.readLine("Candidate ID to edit (Enter to go back): ");
-            if (candidateId.isEmpty()) {
+            System.out.println();
+            Optional<Integer> picked = input.pick("Candidates for " + category.getName() + " (pick one to edit):",
+                    null, labels);
+            if (picked.isEmpty()) {
                 return;
             }
-            Optional<Candidate> selected = category.findCandidate(candidateId);
-            if (selected.isEmpty()) {
-                System.out.println("There is no candidate " + candidateId + " in " + category.getName());
-                continue;
-            }
-            editCandidate(category, selected.get());
+            editCandidate(category, candidates.get(picked.get()));
         }
     }
 

@@ -18,7 +18,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 /** Administrator actions on elections. */
@@ -37,10 +36,6 @@ public class ElectionManagementService {
         return electionRepository.findAll();
     }
 
-    public Optional<Election> findElection(String id) {
-        return electionRepository.findById(id);
-    }
-
     /**
      * The elections this admin created that are in the given status.
      * An admin may only manage their own elections: DRAFT ones to edit, OPEN ones to close.
@@ -49,13 +44,6 @@ public class ElectionManagementService {
         return electionRepository.findByStatus(status).stream()
                 .filter(e -> isCreatedBy(e, admin))
                 .toList();
-    }
-
-    /** One election this admin created, in the given status; empty if the id is unknown, in another status, or someone else's. */
-    public Optional<Election> findAnElectionByAdmin(User admin, ElectionStatus status, String id) {
-        return electionRepository.findById(id)
-                .filter(e -> e.getStatus() == status)
-                .filter(e -> isCreatedBy(e, admin));
     }
 
     /**

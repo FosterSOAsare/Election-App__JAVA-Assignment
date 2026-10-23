@@ -23,6 +23,7 @@ public class VoterMenu implements Menu {
     private final VotingService votingService;
     private final ConsoleInput input;
     private final ResultsScreen resultsScreen;
+    private final ElectionPicker picker;
     private final ElectionView view = new ElectionView();
 
     public VoterMenu(User voter, VotingService votingService, TallyService tallyService, ConsoleInput input) {
@@ -30,6 +31,7 @@ public class VoterMenu implements Menu {
         this.votingService = votingService;
         this.input = input;
         this.resultsScreen = new ResultsScreen(tallyService, input);
+        this.picker = new ElectionPicker(input);
     }
 
     @Override
@@ -62,18 +64,12 @@ public class VoterMenu implements Menu {
             System.out.println("There are no open elections right now.");
             return;
         }
-        view.printElectionTable("Open elections:", open);
-
-        String electionId = input.readLine("Election ID to see its categories and candidates (Enter to go back): ");
-        if (electionId.isEmpty()) {
-            return;
-        }
-        Optional<Election> selected = votingService.findOpenElection(electionId);
+        Optional<Election> selected = picker.pick("Open elections (pick one to see it):",
+                open);
         if (selected.isEmpty()) {
-            System.out.println("No open election with ID " + electionId);
             return;
         }
-        view.printElectionCategories(selected.get());
+        view.printElection(selected.get());
     }
 
     /** Asks for every category first and saves nothing until the voter confirms at the end. */
@@ -83,15 +79,8 @@ public class VoterMenu implements Menu {
             System.out.println("There are no open elections right now.");
             return;
         }
-        view.printElectionTable("Open elections:", open);
-
-        String electionId = input.readLine("Election ID to vote in (Enter to go back): ");
-        if (electionId.isEmpty()) {
-            return;
-        }
-        Optional<Election> selected = votingService.findOpenElection(electionId);
+        Optional<Election> selected = picker.pick("Open elections (pick one to vote in):", open);
         if (selected.isEmpty()) {
-            System.out.println("No open election with ID " + electionId);
             return;
         }
         Election election = selected.get();
@@ -135,7 +124,11 @@ public class VoterMenu implements Menu {
             }
             if (next == 1) {
                 List<String> names = categories.stream().map(Category::getName).toList();
-                Category category = categories.get(input.readChoice("Which category?", names));
+                Optional<Integer> picked = input.pick("Which category?", null, names);
+                if (picked.isEmpty()) {
+                    continue;
+                }
+                Category category = categories.get(picked.get());
                 // Forget the old answer first, so pressing Enter now leaves the category skipped.
                 answers.remove(category.getId());
                 askVote(election, category).ifPresent(ballot -> answers.put(category.getId(), ballot));

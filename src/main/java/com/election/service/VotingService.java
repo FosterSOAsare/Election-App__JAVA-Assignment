@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Casting votes. A voter's answers are prepared one category at a time and only stored together at the end,
@@ -41,12 +40,6 @@ public class VotingService {
         return electionRepository.findByStatus(ElectionStatus.OPEN).stream()
                 .filter(e -> !deadlinePassed(e))
                 .toList();
-    }
-
-    public Optional<Election> findOpenElection(String id) {
-        return electionRepository.findById(id)
-                .filter(e -> e.getStatus() == ElectionStatus.OPEN)
-                .filter(e -> !deadlinePassed(e));
     }
 
     /** The deadline is the moment voting ends, so it has passed from that moment on. */

@@ -82,6 +82,39 @@ public class ConsoleInput {
         }
     }
 
+    /**
+     * A numbered list ending in "0. Back". Returns the index (from 0) of the option picked, or empty for Back.
+     *
+     * @param header printed above the options and lined up with them (a table header), or null for none
+     */
+    public Optional<Integer> pick(String title, String header, List<String> options) {
+        int numberWidth = String.valueOf(options.size()).length();
+        String numberRow = "  %" + numberWidth + "d. %s%n";
+        while (true) {
+            System.out.println(title);
+            if (header != null) {
+                System.out.println("  " + " ".repeat(numberWidth + 2) + header);
+            }
+            for (int i = 0; i < options.size(); i++) {
+                System.out.printf(numberRow, i + 1, options.get(i));
+            }
+            System.out.printf(numberRow, 0, "Back");
+            String text = readLine("> ");
+            try {
+                int choice = Integer.parseInt(text);
+                if (choice == 0) {
+                    return Optional.empty();
+                }
+                if (choice >= 1 && choice <= options.size()) {
+                    return Optional.of(choice - 1);
+                }
+            } catch (NumberFormatException e) {
+                // Not a number: fall through to the message below and ask again.
+            }
+            System.out.println("Choose a number from 0 to " + options.size() + ".");
+        }
+    }
+
     /** Prints the options as a numbered list and returns the index (from 0) of the one picked. */
     public int readChoice(String title, List<String> options) {
         while (true) {

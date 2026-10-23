@@ -7,25 +7,52 @@ import com.election.model.Category;
 import com.election.model.Deadlines;
 import com.election.model.Election;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /** Prints elections, their categories and their candidates. Reads nothing and changes nothing. */
 public class ElectionView {
 
-    /** A table of elections with a header row; each column is padded to its longest value. */
-    public void printElectionTable(String title, List<Election> elections) {
+    /** The table as text: the header row first, then one row per election, each column padded to its longest value. */
+    public List<String> electionTable(List<Election> elections) {
         int idWidth = Math.max("ID".length(), elections.stream().mapToInt(e -> e.getId().length()).max().orElse(0));
         int nameWidth = Math.max("Name".length(),
                 elections.stream().mapToInt(e -> e.getName().length()).max().orElse(0));
-        String row = "  %-" + idWidth + "s  %-" + nameWidth + "s  %-19s  %-6s  %s%n";
+        String row = "%-" + idWidth + "s  %-" + nameWidth + "s  %-19s  %-6s  %s";
 
-        System.out.println(title);
-        System.out.printf(row, "ID", "Name", "Deadline", "Status", "Created by");
+        List<String> lines = new ArrayList<>();
+        lines.add(String.format(row, "ID", "Name", "Deadline", "Status", "Created by"));
         for (Election election : elections) {
-            System.out.printf(row, election.getId(), election.getName(), Deadlines.format(election.getDeadline()),
-                    election.getStatus(), election.getCreatedBy());
+            lines.add(String.format(row, election.getId(), election.getName(),
+                    Deadlines.format(election.getDeadline()), election.getStatus(), election.getCreatedBy()));
         }
+        return lines;
+    }
+
+    /** Everything about one election: its details first, then its categories and their candidates. */
+    public void printElection(Election election) {
+        System.out.println();
+        System.out.println("Election " + election.getId() + ":");
+        printDetails(election);
+        System.out.println("  Categories: " + election.getCategories().size());
+
+        System.out.println();
+        if (election.getCategories().isEmpty()) {
+            System.out.println("It has no categories yet.");
+            return;
+        }
+        // The details above already name the election, so the heading here is just "Categories:".
+        System.out.println("Categories:");
+        printCategories(election, "  ");
+    }
+
+    private void printDetails(Election election) {
+        System.out.println("  ID:         " + election.getId());
+        System.out.println("  Name:       " + election.getName());
+        System.out.println("  Deadline:   " + Deadlines.format(election.getDeadline()));
+        System.out.println("  Status:     " + election.getStatus());
+        System.out.println("  Created by: " + election.getCreatedBy());
     }
 
     public void printElectionCategories(Election election) {
@@ -87,11 +114,7 @@ public class ElectionView {
 
     public void printCreatedElection(Election election) {
         System.out.println("Created election:");
-        System.out.println("  ID:         " + election.getId());
-        System.out.println("  Name:       " + election.getName());
-        System.out.println("  Deadline:   " + Deadlines.format(election.getDeadline()));
-        System.out.println("  Status:     " + election.getStatus());
-        System.out.println("  Created by: " + election.getCreatedBy());
+        printDetails(election);
         System.out.println("  Categories:");
         printCategories(election, "    ");
     }

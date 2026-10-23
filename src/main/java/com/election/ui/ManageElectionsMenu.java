@@ -19,12 +19,13 @@ public class ManageElectionsMenu implements Menu {
     private final User admin;
     private final ElectionManagementService managementService;
     private final ConsoleInput input;
-    private final ElectionView view = new ElectionView();
+    private final ElectionPicker picker;
 
     public ManageElectionsMenu(User admin, ElectionManagementService managementService, ConsoleInput input) {
         this.admin = admin;
         this.managementService = managementService;
         this.input = input;
+        this.picker = new ElectionPicker(input);
     }
 
     @Override
@@ -53,15 +54,8 @@ public class ManageElectionsMenu implements Menu {
             System.out.println("You have no draft elections. Only drafts can be managed.");
             return;
         }
-        view.printElectionTable("Your draft elections:", drafts);
-
-        String electionId = input.readLine("Draft ID to manage (Enter to go back): ");
-        if (electionId.isEmpty()) {
-            return;
-        }
-        Optional<Election> selected = managementService.findAnElectionByAdmin(admin, ElectionStatus.DRAFT, electionId);
+        Optional<Election> selected = picker.pick("Your draft elections (pick one to manage):", drafts);
         if (selected.isEmpty()) {
-            System.out.println("None of your drafts has the ID " + electionId);
             return;
         }
         manageDraft(selected.get());
@@ -137,15 +131,8 @@ public class ManageElectionsMenu implements Menu {
             System.out.println("You have no open elections. Only open elections can be closed.");
             return;
         }
-        view.printElectionTable("Your open elections:", open);
-
-        String electionId = input.readLine("Election ID to close (Enter to go back): ");
-        if (electionId.isEmpty()) {
-            return;
-        }
-        Optional<Election> selected = managementService.findAnElectionByAdmin(admin, ElectionStatus.OPEN, electionId);
+        Optional<Election> selected = picker.pick("Your open elections (pick one to close):", open);
         if (selected.isEmpty()) {
-            System.out.println("None of your open elections has the ID " + electionId);
             return;
         }
         Election election = selected.get();

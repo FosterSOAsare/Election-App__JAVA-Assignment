@@ -11,13 +11,12 @@ import java.util.Optional;
 public class ResultsScreen implements Menu {
 
     private final TallyService tallyService;
-    private final ConsoleInput input;
-    private final ElectionView electionView = new ElectionView();
+    private final ElectionPicker picker;
     private final ResultView resultView = new ResultView();
 
     public ResultsScreen(TallyService tallyService, ConsoleInput input) {
         this.tallyService = tallyService;
-        this.input = input;
+        this.picker = new ElectionPicker(input);
     }
 
     @Override
@@ -27,15 +26,8 @@ public class ResultsScreen implements Menu {
             System.out.println("No elections have been closed yet.");
             return;
         }
-        electionView.printElectionTable("Closed elections:", closed);
-
-        String electionId = input.readLine("Election ID to view (Enter to go back): ");
-        if (electionId.isEmpty()) {
-            return;
-        }
-        Optional<Election> selected = tallyService.findClosedElection(electionId);
+        Optional<Election> selected = picker.pick("Closed elections (pick one to see its results):", closed);
         if (selected.isEmpty()) {
-            System.out.println("No closed election with ID " + electionId);
             return;
         }
 

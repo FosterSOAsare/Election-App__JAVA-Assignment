@@ -86,11 +86,12 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | ui | `Menu` | interface | `void run()` |
 | ui | `AdminMenu` | implements Menu | create election, view all elections, manage elections, view results |
 | ui | `ManageElectionsMenu` | implements Menu | shows only the admin's own elections. Manage a draft (election details, categories, candidates): only DRAFT elections can be managed. Close an election: pick one of your OPEN elections, confirm, and `closeElection` checks you are an administrator and its creator before `Election.close()` (OPEN to CLOSED only). Manage a draft → Open voting: confirm, and `openElection` checks the same permissions plus the setup rules (at least 1 category, candidates where needed, more candidates than seats), reporting every problem at once, before `Election.open()` (DRAFT to OPEN only). Manage a draft → Edit election details opens `EditDraftMenu`; Delete this draft removes the whole draft after confirmation (only drafts can be deleted, since an open or closed election may have ballots) |
-| ui | `EditDraftMenu` | implements Menu | edits one draft: Election details (name, deadline); Edit categories → pick one → Edit category details (rename: not empty, no comma, not another category's name; then optionally change the type and seats: Yes / No to Select one or multiple asks for candidates, Select one to multiple asks for seats and extra candidates if needed, and anything to Yes / No removes the candidates after confirmation) or Edit candidates; Remove this category (with its candidates, after confirmation); Add categories asks the same questions as Create Election (shared `CategoryForm`), refuses names already used in the election straight away, and numbers the new ones after the existing ids (CAT3, C8 ...). Edit candidates lists the category's candidates; the admin picks one by id, then Rename (Enter keeps the name) or Remove (after confirmation); Add candidates adds comma-separated names (same name rules, none already standing there) with the next free Cn ids, and `renameCandidate` checks the creator, that it is still a DRAFT, the name rules and that no other candidate in the category has that name. Yes / No categories have no candidates. Election details changes the name and/or deadline (Enter keeps either): the name cannot be empty or contain a comma, the new deadline must not have passed, and `updateElectionDetails` checks everything before changing anything |
+| ui | `EditDraftMenu` | implements Menu | edits one draft: Election details (name, deadline); Edit categories → pick one → Edit category details (rename: not empty, no comma, not another category's name; then optionally change the type and seats: Yes / No to Select one or multiple asks for candidates, Select one to multiple asks for seats and extra candidates if needed, and anything to Yes / No removes the candidates after confirmation) or Edit candidates; Remove this category (with its candidates, after confirmation); Add categories asks the same questions as Create Election (shared `CategoryForm`), refuses names already used in the election straight away, and numbers the new ones after the existing ids (CAT3, C8 ...). Edit candidates lists the category's candidates; the admin picks one by number, then Rename (Enter keeps the name) or Remove (after confirmation); Add candidates adds comma-separated names (same name rules, none already standing there) with the next free Cn ids, and `renameCandidate` checks the creator, that it is still a DRAFT, the name rules and that no other candidate in the category has that name. Yes / No categories have no candidates. Election details changes the name and/or deadline (Enter keeps either): the name cannot be empty or contain a comma, the new deadline must not have passed, and `updateElectionDetails` checks everything before changing anything |
 | ui | `VoterMenu` | implements Menu | list open elections, then pick one to see its categories, types and candidates (never the ballots); vote: pick an open election; a voter who has already voted in it is told so and sees no categories; otherwise answer each category (Enter skips one, an invalid answer is asked again), then review a summary of every category (skipped ones included) and choose Submit, Change an answer (re-asks one category, then shows the summary again) or Cancel; ballots are saved only on Submit; view results of closed elections |
 | ui | `MenuFactory` | class | picks `AdminMenu` or `VoterMenu` from `user.canManageElections()` |
-| ui | `ConsoleInput` | class | wraps the one `Scanner`; every keyboard read (line, required text, date, number, numbered choice, comma-separated names) re-asks until the answer has the right shape |
+| ui | `ConsoleInput` | class | wraps the one `Scanner`; every keyboard read (line, required text, date, number, numbered choice, comma-separated names) re-asks until the answer has the right shape. `pick` shows a numbered list ending in `0. Back`: every election, category and candidate is chosen by its number, never by typing its id (the two exceptions are logging in by user id and voting by candidate ids) |
 | ui | `ElectionView` | class | prints elections: the padded election table, an election's categories with their type and candidates, and a newly created election |
+| ui | `ElectionPicker` | class | shows elections as a numbered table (`ElectionView.electionTable`) ending in `0. Back`; used by every screen that picks an election |
 | ui | `ResultView` | class | prints an election's results: each category's header, ballot count and `summary()`, whatever the result type |
 | ui | `ResultsScreen` | implements Menu | "View election results", shared by both menus: list closed elections, pick one, show `TallyService.count` through `ResultView` |
 
@@ -269,32 +270,11 @@ V001,E5,CAT1,C1
 V002,E5,CAT1,C2
 V003,E5,CAT1,C1
 V004,E5,CAT1,C3
-V003,E1,CAT1,C2
-V005,E1,CAT1,C4
-V009,E1,CAT2,C4|C5|C6
-V009,E1,CAT3,MAYBE
-V099,E1,CAT1,C1
-V001,E1,VP,C1
-A1,E1,CAT1,C1
-V001,E2,CAT1,C8
 ```
 
-The last eight ballot rows are invalid on purpose, so startup shows the error handling:
+Every seeded ballot is valid, and drafts (E2, E6) have no ballots at all, since voting only starts once an election is opened. `BallotCsvLoader` only checks the column count and that the election exists, and stores every row in its election as a plain `Ballot`; the voting rules are enforced by `VotingService` for votes cast in the console, and are tested there. Ballots are secret: View all elections only shows how many people have voted, never who chose what.
 
-| Row | Problem | Rejected with |
-| --- | --- | --- |
-| `V003,E1,CAT1,C2` | V003 already voted for President | `DuplicateVoteException` |
-| `V005,E1,CAT1,C4` | C4 is a committee candidate, not a presidential one | `InvalidBallotException` |
-| `V009,E1,CAT2,C4\|C5\|C6` | 3 choices, but the committee has 2 seats | `InvalidBallotException` |
-| `V009,E1,CAT3,MAYBE` | answer must be YES or NO | `InvalidBallotException` |
-| `V099,E1,CAT1,C1` | not a known user | `IneligibleVoterException` |
-| `V001,E1,VP,C1` | no category called VP | `InvalidBallotException` |
-| `A1,E1,CAT1,C1` | administrators cannot vote | `IneligibleVoterException` |
-| `V001,E2,CAT1,C8` | election E2 is still a draft | `ElectionStateException` |
-
-For now `BallotCsvLoader` only checks the column count and that the election exists, and stores every row in its election as a plain `Ballot`. Ballots are secret: View all elections only shows how many people have voted, never who chose what. The voting rules below, the abstract `Ballot` with its subclasses, and counting come next, and that is when these eight rows start being rejected.
-
-V010 skips the President vote and V009 ends up with no valid committee or fee vote. Both are allowed: voting in a category is optional.
+V010 skips the President vote and V009 votes only for President. Both are allowed: voting in a category is optional.
 
 Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Then, for each category in turn, the admin picks its type from a numbered list (Select one, Select multiple, Yes / No); a Select multiple category also asks how many winners (2 or more). Unless it is Yes / No, the admin then enters its candidates the same way (`Ama Owusu, Kofi Mensah`); at least one is required and a name cannot appear twice in the same category, though the same person may stand in two categories. Candidates are numbered across the whole election (`C1`, `C2`, ...). A Select multiple category needs more candidates than winners, and a Yes / No category never has candidates.
 
@@ -408,6 +388,6 @@ JUnit tests target the business logic, grouped by the class under test. Tick eac
 
 **End-to-end**
 
-- [ ] Loading the sample files rejects exactly 8 ballots; after A1 closes E1, the results match Expected results
+- [ ] Loading the sample files accepts every ballot; after A1 closes E1, the results match Expected results
 
 Run with `mvn test`.
