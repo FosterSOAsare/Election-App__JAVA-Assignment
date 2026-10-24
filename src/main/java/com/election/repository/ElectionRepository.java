@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class ElectionRepository {
+public final class ElectionRepository {
 
     // LinkedHashMap keeps the elections in file order. Keys are upper case so lookups ignore case.
     private final Map<String, Election> electionsById = new LinkedHashMap<>();
