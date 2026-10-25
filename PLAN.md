@@ -321,73 +321,100 @@ How SOLID shows up:
 
 ## Test plan
 
-JUnit tests target the business logic, grouped by the class under test. Tick each off as it passes.
+JUnit 5 tests live in `src/test/java`, one test class per class under test, in the same package. A deadline only matters next to a fixed `Clock`, so no test depends on today's date. Loader tests write small CSV files into a JUnit `@TempDir` and never touch `src/main/resources`. `TestData` builds the objects many tests share: an admin, a voter, a draft with a Select one category and two candidates.
 
-**ElectionManagementServiceTest**
+**model**
 
-- [ ] Administrator creates an election; it starts as DRAFT with them as creator
-- [ ] Voter trying to create an election throws `UnauthorizedActionException`
-- [ ] Administrator editing another administrator's election throws `UnauthorizedActionException`
-- [ ] Adding a category or candidate to an OPEN election throws `ElectionStateException`
-- [ ] Opening an election with no categories throws `ElectionStateException`
-- [ ] Opening with a SELECT_ONE category that has no candidates throws `ElectionStateException`
-- [ ] Opening with a SELECT_MULTIPLE category that has no more candidates than seats throws `ElectionStateException`
-- [ ] Closing a DRAFT election, or opening a CLOSED one, throws `ElectionStateException`
+- **DeadlinesTest:** a date alone means 00:00:00, and a time with or without seconds is kept. `2026-02-30`, `2026-11-10 25:00` and `10/11/2026` are refused.
+- **NameRulesTest / CandidateTest:**
+  - `Amara Mensah`, `Jean-Luc Picard`, `Conan O'Brien`, `Dr. Who`, `Agent 47` and `Inès Moreau` are accepted.
+  - An empty name, a comma, `@` or `#` throws `InvalidNameException`.
+- **CategoryTest:**
+  - Select one and Yes / No have exactly 1 seat, and Select multiple has at least 2.
+  - A Yes / No question refuses candidates.
+  - A repeated candidate id is refused, and so is a name already standing in any case.
+- **ElectionTest:**
+  - DRAFT goes to OPEN and then to CLOSED, never backwards.
+  - Renaming, changing the deadline and every category or candidate edit are only allowed on a draft.
+  - Removing something never renumbers the rest.
+- **BallotTest:** each ballot type's `validate` checks:
+  - the choice count
+  - repeated candidates
+  - candidates of another category
+  - answers other than YES / NO
+- **CandidateResultTest / YesNoResultTest:** the winners, ties and summaries print as the results screen shows them.
 
-**MostVotesCountTest**
+**repository**
 
-- [ ] One seat: sample President ballots elect C1
-- [ ] Two seats: sample committee ballots elect C4 and C5, even though they tie with each other
-- [ ] Tie for the last seat leaves it undecided and lists the tied candidates
-- [ ] Zero ballots elects no one
+- **UserRepositoryTest / ElectionRepositoryTest:**
+  - `findById` ignores case.
+  - A repeated id is refused.
+  - `nextId` follows the highest E-number.
+  - `findByStatus` keeps file order.
+  - `delete` reports whether anything was removed.
 
-**YesNoCountTest**
+**service**
 
-- [ ] 6 yes, 3 no passes
-- [ ] Equal yes and no is rejected
-- [ ] Zero ballots is rejected
+- **ElectionManagementServiceTest:**
+  - `createElection` builds a DRAFT owned by the admin, with categories CAT1.. and candidates C1.. numbered across the election.
+  - A comma in the name or a passed deadline is refused.
+  - Every edit refuses a voter or another admin (`UnauthorizedActionException`), and an election that is not a draft (`ElectionStateException`).
+  - `openElection` lists every setup problem at once.
+  - `closeElection` only works on an OPEN election, and only for its creator.
+  - A refused `updateElectionDetails` or `addCategories` changes nothing at all.
+- **VotingServiceTest:**
+  - Each ballot type is accepted, `yes` in any case and `c1` included.
+  - An administrator is refused (`IneligibleVoterException`).
+  - A DRAFT or CLOSED election is refused (`ElectionStateException`).
+  - For an 18:00 deadline, voting works at 17:59:59 and is refused at 18:00:00.
+  - A second submission in the same election throws `DuplicateVoteException`.
+  - `submitBallots` stores all ballots or none.
+- **BallotFactoryTest:**
+  - Each ballot type builds the right ballot class.
+  - An unknown category, a candidate of another category, too many choices, a repeated candidate or `MAYBE` throws `InvalidBallotException`.
+  - Choosing exactly `seats` candidates is accepted.
+- **MostVotesCountTest:**
+  - With one seat, the most votes win.
+  - With several seats, the top N win, and a tie that still fits is not a tie.
+  - A tie for the last seat leaves it undecided and lists the tied candidates.
+  - Zero ballots elects no one.
+- **YesNoCountTest:** 7 yes and 3 no passes with 70.0%; a tie is rejected, and so are zero votes.
+- **TallyServiceTest / CountingMethodRegistryTest:**
+  - A DRAFT or OPEN election cannot be counted.
+  - A CLOSED election gives one result per category, in category order.
+  - Each ballot type gets its counting method.
 
-**VotingServiceTest**
+**loader**
 
-- [ ] Valid vote is recorded
-- [ ] Same voter can vote in two different categories
-- [ ] Second vote in the same category throws `DuplicateVoteException`
-- [ ] Unknown user throws `IneligibleVoterException`
-- [ ] Administrator trying to vote throws `IneligibleVoterException`
-- [ ] Vote in a DRAFT or CLOSED election throws `ElectionStateException`
+- **CsvReaderTest:**
+  - Header, column count, blank lines, a byte order mark, numbers and enum values are read correctly, or refused with the file and line.
+  - A missing file says where it was looked for.
+- **UserAndElectionLoaderTest:**
+  - ADMIN / VOTER build an Administrator / Voter.
+  - A deadline is read with or without a time.
+  - An unknown role or status, a bad date, a blank id or a blank name are refused with their line.
+- **CategoryCandidateBallotLoaderTest:**
+  - An unknown election or category is refused, while the same category id in two elections is fine.
+  - Bad seats, a repeated id or name, an invalid candidate name, and candidates on a Yes / No question are refused.
+  - Ballots split their choices on `|`, and a ballot that breaks the voting rules is refused.
 
-**TallyServiceTest**
+**ui**
 
-- [ ] Results for an OPEN election throw `ElectionStateException`
-- [ ] Results for a CLOSED election return one result per category, in file order
-
-**BallotFactoryTest and ballot validation**
-
-- [ ] SELECT_ONE with two choices throws `InvalidBallotException`
-- [ ] Candidate from another category throws `InvalidBallotException`
-- [ ] SELECT_MULTIPLE with more choices than seats throws `InvalidBallotException`
-- [ ] SELECT_MULTIPLE with a repeated candidate throws `InvalidBallotException`
-- [ ] SELECT_MULTIPLE with exactly `seats` choices is accepted (edge case)
-- [ ] YES_NO answer other than YES or NO throws `InvalidBallotException`
-- [ ] Unknown category throws `InvalidBallotException`
-
-**NameRules / Candidate**
-
-- [ ] `Amara Mensah`, `Jean-Luc Picard`, `Conan O'Brien`, `Dr. Who`, `Agent 47` and `Inès Moreau` are accepted
-- [ ] An empty name, a comma, or a symbol such as `@` or `#` throws `InvalidNameException`
-- [ ] A candidates.csv row with an invalid name is rejected with its line number
-
-**Loader tests**
-
-- [ ] Unknown role in users.csv throws `DataLoadException` with the line number
-- [ ] Election whose `createdBy` is a voter throws `DataLoadException`
-- [ ] Unknown ballot type in categories.csv throws `DataLoadException`
-- [ ] SELECT_ONE category with 2 seats throws `DataLoadException`
-- [ ] Category or candidate pointing to an unknown id throws `DataLoadException`
-- [ ] Missing column throws `DataLoadException`
+- **ConsoleInputTest** (typed answers come from a `Scanner` over a string):
+  - `confirm` asks again for anything but yes/y/no/n.
+  - `pick` returns empty for `0` and asks again for numbers outside the list or text.
+  - `0` cancels a multi-step flow.
+  - `readNames` asks again for no names, a repeated name or an invalid name.
 
 **End-to-end**
 
-- [ ] Loading the sample files accepts every ballot; after A1 closes E1, the results match Expected results
+- **SeedDataTest** (the real files in `src/main/resources`):
+  - All the files load: 6 elections and 69 ballots, with none in drafts.
+  - Every ballot belongs to a known voter, at most once per category.
+  - E3 and E4, and E1 once it is closed, match the Expected results above.
+- **LifecycleTest:**
+  - An admin creates a draft and adds a category, then opens it.
+  - Three voters vote, and a second vote is refused.
+  - The admin closes the election, and the results count exactly those ballots.
 
-Run with `mvn test`.
+Run with `mvn test`, or in IntelliJ right-click `src/test/java` → Run. All 293 tests pass.
