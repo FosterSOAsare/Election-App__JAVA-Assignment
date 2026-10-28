@@ -136,12 +136,12 @@ V010,VOTER
 
 ```csv
 id,name,deadline,status,createdBy
-E1,Student Council 2026,2026-11-10,OPEN,A1
-E2,Sports Club Captain 2026,2026-12-01,DRAFT,A2
+E1,Student Council 2026,2027-01-08,OPEN,A1
+E2,Sports Club Captain 2026,2026-12-20,DRAFT,A2
 E3,Student Council 2025,2025-11-12,CLOSED,A1
 E4,Library Committee 2026,2026-04-22,CLOSED,A2
-E5,Graduation Speaker 2026,2026-10-30,OPEN,A2
-E6,Debate Club President 2027,2027-01-15,DRAFT,A1
+E5,Graduation Speaker 2026,2026-12-30,OPEN,A2
+E6,Debate Club President 2027,2027-01-10,DRAFT,A1
 ```
 
 E3 to E6 cover every status for both administrators, so the menus have something to show. They have no categories, candidates or ballots yet.
@@ -276,7 +276,7 @@ Every seeded ballot is valid, and drafts (E2, E6) have no ballots at all, since 
 
 V010 skips the President vote and V009 votes only for President. Both are allowed: voting in a category is optional.
 
-Changes an administrator makes in the console should eventually be saved back to the CSV files. For now they are kept in memory only, so they last until the program exits. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its name cannot be empty or contain a comma, and its deadline must be a valid date (and optional time) that has not passed yet; every question asks again after an empty or invalid answer, and `createElection` enforces the same rules. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Then, for each category in turn, the admin picks its type from a numbered list (Select one, Select multiple, Yes / No); a Select multiple category also asks how many winners (2 or more). Unless it is Yes / No, the admin then enters its candidates the same way (`Ama Owusu, Kofi Mensah`); at least one is required and a name cannot appear twice in the same category, though the same person may stand in two categories. Candidates are numbered across the whole election (`C1`, `C2`, ...). A Select multiple category needs more candidates than winners, and a Yes / No category never has candidates.
+Changes made in the console are kept in memory only and are not saved back to the CSV files, so they last until the program exits and every run starts from the same seed data. A new election gets the next free id (E7 after E6), starts as DRAFT, and belongs to the administrator who created it. Its name cannot be empty or contain a comma, and its deadline must be a valid date (and optional time) that has not passed yet; every question asks again after an empty or invalid answer, and `createElection` enforces the same rules. Its categories are entered on one line, separated by commas (`President, Treasurer`); at least one is required, the same name cannot appear twice, and each is numbered inside the new election (`CAT1`, `CAT2`, ...). Then, for each category in turn, the admin picks its type from a numbered list (Select one, Select multiple, Yes / No); a Select multiple category also asks how many winners (2 or more). Unless it is Yes / No, the admin then enters its candidates the same way (`Ama Owusu, Kofi Mensah`); at least one is required and a name cannot appear twice in the same category, though the same person may stand in two categories. Candidates are numbered across the whole election (`C1`, `C2`, ...). A Select multiple category needs more candidates than winners, and a Yes / No category never has candidates.
 
 ## Expected results
 
