@@ -25,12 +25,12 @@ The sample election, Student Council 2026, has three categories:
 | Inheritance | Abstract `User` with `Administrator` and `Voter`; abstract `Ballot` with `SingleChoiceBallot`, `MultipleChoiceBallot` and `YesNoBallot`; abstract `CategoryResult` with `CandidateResult` and `YesNoResult` |
 | Polymorphism | `user.canManageElections()` and `user.canVote()` answer differently per role; each ballot validates itself; each category is counted through `CountingMethod`; each result prints through `summary()` |
 | Abstract class / interface | `User`, `Ballot` and `CategoryResult` are abstract (shared state + behaviour); `ManagementPermission`, `VotingPermission`, `CountingMethod`, `DataLoader<T>` and `Menu` are interfaces |
-| Business logic | Role permissions, election lifecycle, setup checks before opening, registration checks, one vote per voter per category, ballot validation per type, multi-seat counting, yes/no outcome, tie handling |
+| Business logic | Role permissions, election lifecycle, setup checks before opening, deadline checks, one submission per voter per election, ballot validation per type, multi-seat counting, yes/no outcome, tie handling |
 | File loading | `users.csv`, `elections.csv`, `categories.csv`, `candidates.csv`, `ballots.csv` loaded at startup |
 | Exceptions | Checked `ElectionException` hierarchy plus `DataLoadException`; a bad data row stops loading with its file, line and reason (for example `categories.csv line 13: 'RANKED' is not one of [SELECT_ONE, SELECT_MULTIPLE, YES_NO]`) |
 | Unit tests | JUnit tests on permissions, lifecycle, counting, voting rules, ballot validation and loaders |
 | SOLID | Loading, election management, voting, counting and display live in separate classes; a new ballot type plugs in without changing existing counting code |
-| Collections and Java features | `Map` of elections and categories, `Map<String, Set<String>>` of who voted where, `List` of ballots; enums, `EnumMap`, `LocalDate` for election dates, streams, `Optional`, generics |
+| Collections and Java features | `LinkedHashMap` of elections and of each election's categories (kept in file order), `List` of ballots, `Set` of candidate ids while loading; enums, `EnumMap`, `LocalDateTime` for deadlines, `Clock`, streams, lambdas, `Optional`, generics, records |
 
 Scope rule: get SELECT_ONE voting working end to end first, then the admin actions, then YES_NO, then SELECT_MULTIPLE.
 
@@ -46,7 +46,7 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `Administrator` | extends User | manages elections; cannot vote |
 | model | `Voter` | extends User | votes; cannot manage elections |
 | model | `Role` | enum | ADMIN, VOTER (read from users.csv) |
-| model | `Election` | class | id, name, date, status, createdBy, `Map<String, Category>`, ballots; `open()`, `close()`, `ballotsFor(categoryId)` |
+| model | `Election` | class | id, name, deadline, status, createdBy, `Map<String, Category>`, ballots; `open()`, `close()`, `findCategory`, `addBallot`, and the draft-only edits (rename, change deadline, change a category's type, remove a category or candidate) |
 | model | `ElectionStatus` | enum | DRAFT, OPEN, CLOSED |
 | model | `Deadlines` | final class | parses and prints an election deadline (`LocalDateTime`): `YYYY-MM-DD` or `YYYY-MM-DD HH:MM[:SS]`, 00:00:00 when no time is given; shared by the CSV loader and the console |
 | model | `Category` | class | id, electionId, name, ballot type, seats, its candidates |
@@ -61,14 +61,14 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `YesNoResult` | extends CategoryResult | yes count, no count, passed |
 | repository | `UserRepository` | class | `Map<String, User>`; `findById` ignores case; rejects duplicate ids |
 | repository | `ElectionRepository` | class | `LinkedHashMap<String, Election>` in file order; `findAll`, `findById`, `findByStatus`, `add`, `delete`, `nextId` |
-| service | `ElectionManagementService` | class | admin actions: `createElection`, `addCategory`, `addCandidate`, `openElection`, `closeElection`; checks the actor's role, that the actor created the election, and the election's state |
+| service | `ElectionManagementService` | class | admin actions: `createElection`, `updateElectionDetails`, `addCategories`, `renameCategory`, `changeCategoryType`, `removeCategory`, `addCandidates`, `renameCandidate`, `removeCandidate`, `deleteElection`, `openElection`, `closeElection`; checks the actor's role, that the actor created the election, and the election's state |
 | service | `CountingMethod` | interface | `CategoryResult count(Category, List<Ballot>)` |
 | service | `MostVotesCount` | implements CountingMethod | tallies every selection; the top `seats` candidates win (1 for SELECT_ONE) |
 | service | `YesNoCount` | implements CountingMethod | passes when yes votes outnumber no votes |
 | service | `CountingMethodRegistry` | class | `EnumMap<BallotType, CountingMethod>`: picks the counting method for a category |
 | service | `BallotFactory` | class | `create(voterId, category, choices)` builds the subclass for the category's ballot type and has it validate itself; `VotingService` (console votes) and `BallotCsvLoader` (seeded ballots) both use it, so both go through the same rules |
 | service | `VotingService` | class | `prepareBallot(voter, election, categoryId, choices)` checks one answer without storing it: user can vote, election is OPEN, its deadline has not passed, voter has not voted in this election yet, category exists, choices fit the ballot type (candidate ids are matched ignoring case). `submitBallots` re-checks every prepared ballot and stores them all together, or none. `hasVoted(voter, election)`: a voter submits once per election, so any ballot of theirs in it counts |
-| service | `TallyService` | class | `closedElections()` and `findClosedElection(id)` for the results menu; counts every category of a CLOSED election; returns `Map<Category, CategoryResult>` in file order |
+| service | `TallyService` | class | `closedElections()` for the results menu; counts every category of a CLOSED election; returns `Map<Category, CategoryResult>` in file order |
 | loader | `DataLoader<T>` | interface | `List<T> load(Path)` throws `DataLoadException` |
 | loader | `CsvReader` | class | reads a file, checks its header, skips blank lines, splits each line and checks the column count; each `Row` knows its file and line and offers `parseInt`, the generic `parseEnum` and `error(...)` for a `DataLoadException` with that location |
 | loader | `UserCsvLoader` | implements DataLoader | builds an `Administrator` or `Voter` from the role column |
@@ -79,8 +79,8 @@ Six packages under `com.election`, each with one job. Repositories store objects
 | model | `NameRules` | final class | the one place that defines a valid name: letters (any language), digits, spaces, hyphens, apostrophes and full stops; never commas, which separate CSV columns and console lists. `Candidate`'s constructor enforces it |
 | exception | `UnauthorizedActionException` | extends ElectionException | a voter tries an admin action, or an admin manages another admin's election |
 | exception | `ElectionStateException` | extends ElectionException | action not allowed in the current state: editing an open election, voting in a draft or closed one, results before closing, opening a category with no candidates |
-| exception | `IneligibleVoterException` | extends ElectionException | user is unknown, or is an administrator |
-| exception | `DuplicateVoteException` | extends ElectionException | voter already voted in this category |
+| exception | `IneligibleVoterException` | extends ElectionException | an administrator tries to vote (an unknown user id is refused at login) |
+| exception | `DuplicateVoteException` | extends ElectionException | voter already submitted their ballots in this election |
 | exception | `InvalidBallotException` | extends ElectionException | unknown category, candidate from another category, too many or too few choices, repeated choice, answer not YES or NO |
 | exception | `DataLoadException` | checked | wraps `IOException`, `DateTimeParseException`, malformed rows, unknown role or ballot type, bad seat count, unknown election or category id |
 | ui | `Menu` | interface | `void run()` |
@@ -132,7 +132,7 @@ V009,VOTER
 V010,VOTER
 ```
 
-**elections.csv** (`createdBy` must be an administrator; `deadline` is the moment voting ends, written `YYYY-MM-DD` or `YYYY-MM-DD HH:MM[:SS]`, and a missing time means 00:00:00, the start of that day. Votes are accepted before it and refused from it on, and an election cannot be opened once it has passed. `Deadlines` parses and prints it the same way for the file and the console)
+**elections.csv** (`createdBy` is the id of the administrator who manages it; `deadline` is the moment voting ends, written `YYYY-MM-DD` or `YYYY-MM-DD HH:MM[:SS]`, and a missing time means 00:00:00, the start of that day. Votes are accepted before it and refused from it on, and an election cannot be opened once it has passed. `Deadlines` parses and prints it the same way for the file and the console)
 
 ```csv
 id,name,deadline,status,createdBy
@@ -144,7 +144,7 @@ E5,Graduation Speaker 2026,2026-12-30,OPEN,A2
 E6,Debate Club President 2027,2027-01-10,DRAFT,A1
 ```
 
-E3 to E6 cover every status for both administrators, so the menus have something to show. They have no categories, candidates or ballots yet.
+E3 to E6 cover every status for both administrators, so the menus have something to show. Each has its own categories and candidates below, and the open and closed ones have ballots.
 
 **categories.csv** (`seats` is the number of winners; always 1 for SELECT_ONE and YES_NO)
 
@@ -315,7 +315,7 @@ How SOLID shows up:
 
 - **Single responsibility:** loading, storage (repositories), election management, ballot creation, voting, counting and display are separate classes. Menus only read input and print; they ask a service for anything that involves a rule.
 - **Open/closed:** adding a ranked ballot later means a new `Ballot` subclass, a new `CountingMethod`, an enum value and one registry entry; `TallyService`, `VotingService` and the existing counting methods stay untouched. A new role, such as an observer who can only view results, is a new `User` subclass.
-- **Liskov substitution:** any `User` works wherever the services expect one; `MostVotesCount` reads any ballot through `selections()`, so single and multiple choice ballots are interchangeable to it.
+- **Liskov substitution:** any `User` works wherever the services expect one; `MostVotesCount` reads any ballot through `getChoices()`, so single and multiple choice ballots are interchangeable to it.
 - **Interface segregation:** `ManagementPermission`, `VotingPermission`, `CountingMethod`, `DataLoader<T>` and `Menu` each have one method, so a class only depends on the one it needs.
 - **Dependency inversion:** `TallyService` depends on the `CountingMethod` interface through `CountingMethodRegistry`, never on `MostVotesCount` or `YesNoCount` directly; `Application` only talks to the `Menu` interface.
 
