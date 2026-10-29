@@ -18,9 +18,24 @@ The business logic is in the rules:
 
 ## How to run
 
-You need JDK 21 or later. Run the app from the project folder, because it reads its data from `src/main/resources`.
+### Setup
 
-- **IntelliJ:** open the folder as a Maven project, then run `com.election.Application`.
+1. Install **JDK 21 or later**.
+2. To run from a terminal you also need **Maven 3.6.3 or later**. IntelliJ IDEA comes with Maven, so you don't need to install it separately there.
+3. Get the code:
+
+   ```
+   git clone https://github.com/FosterSOAsare/Election-App__JAVA-Assignment.git
+   cd Election-App__JAVA-Assignment
+   ```
+
+4. In IntelliJ, choose **File → Open**, select the `Election-App__JAVA-Assignment` folder, and open it as a Maven project. IntelliJ downloads JUnit by itself. If it asks for a JDK, choose one that is 21 or later.
+
+### Run
+
+Run the app from the project folder, because it reads its data from `src/main/resources`.
+
+- **IntelliJ:** open `src/main/java/com/election/Application.java` and click the green ▶ next to `main`.
 - **Maven:** `mvn compile exec:java`
 
 Log in by typing a user ID from `users.csv`:
